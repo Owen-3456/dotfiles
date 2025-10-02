@@ -41,3 +41,21 @@ stow [package-name]
 - `fastfetch/` - System info
 - `git/` - Git config
 - `oh-my-posh/` - Shell prompt
+
+## .bashrc requirements
+
+Debian/Ubuntu:
+```shell
+sudo apt install fzf bat trash-cli jq curl starship
+```
+
+or
+
+```shell
+sudo nala install fzf bat trash-cli jq curl starship
+```
+
+Arch Linux:
+```shell
+sudo pacman -Sy fzf bat trash-cli jq curl starship
+```

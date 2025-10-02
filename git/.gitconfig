@@ -6,3 +6,5 @@
 [user]
 	name = Owen
 	email = 78411938+Owen-3456@users.noreply.github.com
+[credential]
+	helper = store

@@ -1,6 +1,5 @@
 [general]
 live_config_reload = true
-working_directory = "None"
 
 [window]
 startup_mode = "Maximized"
@@ -16,9 +15,11 @@ shape= "Beam"
 blinking = "Never"
 
 [font]
+size = 12.0
+
+[font.normal]
 normal.family = "JetBrainsMono Nerd Font"
 normal.style = "Regular"
-size = 12.0
 
 [font.bold]
 family = "JetBrainsMono Nerd Font"

@@ -1,0 +1,17 @@
+[general]
+live_config_reload = true
+working_directory = "C:\\Users\\owenp"
+
+[window]
+startup_mode = "Maximized"
+dynamic_title = true
+decorations = "Full"
+opacity = 0.8
+
+[font]
+normal = { family = "JetBrainsMono Nerd Font", style = "Regular" }
+size = 12.0
+
+[terminal.shell]
+program = "C:\\Program Files\\PowerShell\\7\\pwsh.exe"
+args = []

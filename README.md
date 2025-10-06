@@ -11,8 +11,8 @@ sudo apt update
 sudo apt install nala -y
 sudo nala install git stow fzf zoxide trash-cli jq curl starship bash-completion -y
 git config credential.helper store
-git clone https://github.com/Owen-3456/dotfiles.git ~/dotfiles
-cd ~/dotfiles
+git clone https://github.com/Owen-3456/dotfiles.git ~/.dotfiles
+cd ~/.dotfiles
 stow --adopt alacritty bash git starship fastfetch
 ```
 
@@ -21,8 +21,8 @@ stow --adopt alacritty bash git starship fastfetch
 sudo pacman -Syy
 sudo pacman -Sy git stow fzf zoxide trash-cli jq curl starship bash-completion
 git config credential.helper store
-git clone https://github.com/Owen-3456/dotfiles.git ~/dotfiles
-cd ~/dotfiles
+git clone https://github.com/Owen-3456/dotfiles.git ~/.dotfiles
+cd ~/.dotfiles
 stow --adopt alacritty bash git starship fastfetch
 ```
 

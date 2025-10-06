@@ -4,58 +4,38 @@ Personal dotfiles managed with GNU Stow.
 
 ## Setup
 
-### 1. Install GNU Stow
+### Debian/Ubuntu:
 
-APT:
 ```shell
-sudo apt install stow
+sudo apt update
+sudo apt install nala -y
+sudo nala install git stow fzf zoxide trash-cli jq curl starship bash-completion -y
+git config credential.helper store
+git clone https://github.com/Owen-3456/dotfiles.git ~/dotfiles
+cd ~/dotfiles
+stow alacritty bash git starship fastfetch
 ```
 
-Pacman:
+### Arch:
 ```shell
-sudo pacman -S stow
+sudo pacman -Sy git stow fzf zoxide trash-cli jq curl starship bash-completion
+git config credential.helper store
+git clone https://github.com/Owen-3456/dotfiles.git ~/dotfiles
+cd ~/dotfiles
+stow alacritty bash git starship fastfetch
 ```
 
-### 2. Clone this repo
+### Recommended packages:
 
+#### Debian/Ubuntu:
 ```shell
-git clone https://github.com/owen-3456/dotfiles.git ~/.dotfiles
+sudo apt update
+sudo apt install nala -y
+sudo apt install bat ripgrep nano fastfetch -y
 ```
 
-### 3. Navigate to the repo
-
+#### Arch:
 ```shell
-cd ~/.dotfiles
-```
-
-### 4. Install configs
-
-```shell
-stow [package-name]
-```
-
-## Packages
-
-- `alacritty/` - Terminal config
-- `bash/` - Shell config  
-- `fastfetch/` - System info
-- `git/` - Git config
-- `oh-my-posh/` - Shell prompt
-
-## .bashrc requirements
-
-Debian/Ubuntu:
-```shell
-sudo apt install fzf bat trash-cli jq curl starship
-```
-
-or
-
-```shell
-sudo nala install fzf bat trash-cli jq curl starship
-```
-
-Arch Linux:
-```shell
-sudo pacman -Sy fzf bat trash-cli jq curl starship
+sudo pacman -Syy
+sudo pacman -Sy bat ripgrep nano fastfetch
 ```

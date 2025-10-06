@@ -8,10 +8,6 @@
 # Enable syntax highlighting for all available file types
 include /usr/share/nano/*.nanorc
 
-# Include additional syntax files if they exist
-include /usr/local/share/nano/*.nanorc
-include ~/.config/nano/syntax/*.nanorc
-
 # ========================================
 # INDENTATION & FORMATTING
 # ========================================
@@ -45,12 +41,6 @@ set constantshow
 # Remove the help text at the bottom (more space for editing)
 set nohelp
 
-# Enable smooth scrolling
-set smooth
-
-# Highlight the current line
-set cursorpos
-
 # Show whitespace characters
 set whitespace "»·"
 
@@ -83,9 +73,6 @@ set backup
 
 # Store backups in a dedicated directory
 set backupdir "~/.nano/backups"
-
-# Use a different suffix for backup files
-set backupsuffix "~"
 
 # Keep a history of search and replace strings
 set historylog
@@ -138,10 +125,6 @@ bind ^G gotoline main
 # ========================================
 # Enable these features for specific file types
 
-# For configuration files
-extendsyntax conf comment "#"
-extendsyntax conf color yellow "^[[:space:]]*[^=]*="
-
 # For shell scripts
 extendsyntax sh comment "#"
 
@@ -150,6 +133,5 @@ extendsyntax python comment "#"
 extendsyntax python color brightcyan "^[[:space:]]*def [a-zA-Z_][a-zA-Z0-9_]*"
 extendsyntax python color brightcyan "^[[:space:]]*class [a-zA-Z_][a-zA-Z0-9_]*"
 
-# For JavaScript/TypeScript
+# For JavaScript
 extendsyntax javascript comment "//"
-extendsyntax typescript comment "//"

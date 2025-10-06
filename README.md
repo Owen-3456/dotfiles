@@ -8,7 +8,8 @@ Personal dotfiles managed with GNU Stow.
 
 ```shell
 sudo apt update
-sudo apt install -y git stow fzf zoxide trash-cli jq curl starship bash-completion bat ripgrep nano fastfetch
+sudo apt install -y nala
+sudo nala install -y git stow fzf zoxide trash-cli jq curl starship bash-completion bat ripgrep nano fastfetch
 git clone https://github.com/Owen-3456/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
 stow --override */

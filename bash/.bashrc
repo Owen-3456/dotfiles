@@ -596,3 +596,6 @@ export PATH=$PATH:"$HOME/.local/bin:$HOME/.cargo/bin:/var/lib/flatpak/exports/bi
 
 eval "$(starship init bash)"
 eval "$(zoxide init bash)"
+if command -v brew &> /dev/null; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+fi

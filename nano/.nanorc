@@ -1,0 +1,155 @@
+# ========================================
+# NANO CONFIGURATION FILE
+# ========================================
+
+# ========================================
+# SYNTAX HIGHLIGHTING
+# ========================================
+# Enable syntax highlighting for all available file types
+include /usr/share/nano/*.nanorc
+
+# Include additional syntax files if they exist
+include /usr/local/share/nano/*.nanorc
+include ~/.config/nano/syntax/*.nanorc
+
+# ========================================
+# INDENTATION & FORMATTING
+# ========================================
+# Auto-indent new lines to match previous line
+set autoindent
+
+# Convert typed tabs to spaces
+set tabstospaces
+
+# Set tab size to 4 spaces
+set tabsize 4
+
+# Trim trailing whitespace when saving
+set trimblanks
+
+# Enable soft wrapping of long lines at word boundaries
+set softwrap
+
+# Set wrap width to 80 characters for better readability
+set fill 80
+
+# ========================================
+# DISPLAY & INTERFACE
+# ========================================
+# Show line numbers in the left margin
+set linenumbers
+
+# Show column number in status bar
+set constantshow
+
+# Remove the help text at the bottom (more space for editing)
+set nohelp
+
+# Enable smooth scrolling
+set smooth
+
+# Highlight the current line
+set cursorpos
+
+# Show whitespace characters
+set whitespace "»·"
+
+# ========================================
+# NAVIGATION & EDITING
+# ========================================
+# Enable mouse support (clicking, scrolling, selecting)
+set mouse
+
+# Make the Home key smarter (toggle between line start and first non-whitespace)
+set smarthome
+
+# Enable multiple file buffers
+set multibuffer
+
+# Remember cursor position when reopening files
+set positionlog
+
+# Enable case-sensitive search by default
+set casesensitive
+
+# Enable regular expression search
+set regexp
+
+# ========================================
+# BACKUP & HISTORY
+# ========================================
+# Create backup files
+set backup
+
+# Store backups in a dedicated directory
+set backupdir "~/.nano/backups"
+
+# Use a different suffix for backup files
+set backupsuffix "~"
+
+# Keep a history of search and replace strings
+set historylog
+
+# ========================================
+# SPELL CHECKING
+# ========================================
+# Set default spell checker (uncomment if aspell is installed)
+# set speller "aspell -x -c"
+
+# ========================================
+# KEY BINDINGS
+# ========================================
+# Unbind some default keys and rebind them to more intuitive functions
+# Ctrl+S for save (instead of Ctrl+O)
+bind ^S writeout main
+
+# Ctrl+Q for quit
+bind ^Q exit main
+
+# Ctrl+X for cut (standard)
+bind ^X cut main
+
+# Ctrl+C for copy
+bind ^C copy main
+
+# Ctrl+V for paste
+bind ^V paste main
+
+# Ctrl+Z for undo
+bind ^Z undo main
+
+# Ctrl+Y for redo
+bind ^Y redo main
+
+# Alt+U for undo (alternative)
+bind M-U undo main
+
+# Ctrl+F for find
+bind ^F whereis main
+
+# Ctrl+H for find and replace
+bind ^H replace main
+
+# Ctrl+G for go to line
+bind ^G gotoline main
+
+# ========================================
+# FILE TYPE SPECIFIC SETTINGS
+# ========================================
+# Enable these features for specific file types
+
+# For configuration files
+extendsyntax conf comment "#"
+extendsyntax conf color yellow "^[[:space:]]*[^=]*="
+
+# For shell scripts
+extendsyntax sh comment "#"
+
+# For Python files
+extendsyntax python comment "#"
+extendsyntax python color brightcyan "^[[:space:]]*def [a-zA-Z_][a-zA-Z0-9_]*"
+extendsyntax python color brightcyan "^[[:space:]]*class [a-zA-Z_][a-zA-Z0-9_]*"
+
+# For JavaScript/TypeScript
+extendsyntax javascript comment "//"
+extendsyntax typescript comment "//"

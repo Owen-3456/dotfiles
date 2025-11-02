@@ -374,24 +374,50 @@ installpkg() {
         fi
     elif [ -f /etc/arch-release ]; then
         echo "Arch-based system detected"
-        echo "Loading package list... (this may take a moment)"
-        local packages=$(pacman -Slq)
-        if [ -z "$packages" ]; then
-            echo "Error: No packages found. Try running 'sudo pacman -Sy' first."
-            return 1
-        fi
-        local selected=$(echo "$packages" | fzf --multi --header="Select packages to install (TAB to select multiple, ENTER to confirm)" \
-            --preview 'pacman -Si {1} 2>/dev/null | head -20' --preview-window=right:60%:wrap)
-        if [ -n "$selected" ]; then
-            echo "Selected packages: $(echo "$selected" | tr '\n' ' ')"
-            read -p "Do you want to install these packages? (y/N): " confirm
-            if [[ $confirm =~ ^[Yy]$ ]]; then
-                echo "$selected" | xargs -r sudo pacman -S --noconfirm
+        
+        # Check if yay is available
+        if command -v yay >/dev/null 2>&1; then
+            echo "Using yay (includes AUR packages)"
+            echo "Loading package list... (this may take a moment)"
+            local packages=$(yay -Slq)
+            if [ -z "$packages" ]; then
+                echo "Error: No packages found. Try running 'yay -Sy' first."
+                return 1
+            fi
+            local selected=$(echo "$packages" | fzf --multi --header="Select packages to install from repos + AUR (TAB to select multiple, ENTER to confirm)" \
+                --preview 'yay -Si {1} 2>/dev/null | head -20' --preview-window=right:60%:wrap)
+            if [ -n "$selected" ]; then
+                echo "Selected packages: $(echo "$selected" | tr '\n' ' ')"
+                read -p "Do you want to install these packages? (y/N): " confirm
+                if [[ $confirm =~ ^[Yy]$ ]]; then
+                    echo "$selected" | xargs -r yay -S --noconfirm
+                else
+                    echo "Installation cancelled."
+                fi
             else
-                echo "Installation cancelled."
+                echo "No packages selected."
             fi
         else
-            echo "No packages selected."
+            echo "Using pacman (official repos only - install 'yay' for AUR access)"
+            echo "Loading package list... (this may take a moment)"
+            local packages=$(pacman -Slq)
+            if [ -z "$packages" ]; then
+                echo "Error: No packages found. Try running 'sudo pacman -Sy' first."
+                return 1
+            fi
+            local selected=$(echo "$packages" | fzf --multi --header="Select packages to install (TAB to select multiple, ENTER to confirm)" \
+                --preview 'pacman -Si {1} 2>/dev/null | head -20' --preview-window=right:60%:wrap)
+            if [ -n "$selected" ]; then
+                echo "Selected packages: $(echo "$selected" | tr '\n' ' ')"
+                read -p "Do you want to install these packages? (y/N): " confirm
+                if [[ $confirm =~ ^[Yy]$ ]]; then
+                    echo "$selected" | xargs -r sudo pacman -S --noconfirm
+                else
+                    echo "Installation cancelled."
+                fi
+            else
+                echo "No packages selected."
+            fi
         fi
     else
         echo "Error: Unknown distribution. This function supports Debian/Ubuntu and Arch-based systems only."

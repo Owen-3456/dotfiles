@@ -95,6 +95,7 @@ alias mv='mv -i'
 alias rm='trash -v'
 alias mkdir='mkdir -p'
 alias ls='eza -la --color=auto --group-directories-first'
+alias top='btop'
 
 # Linutil alias
 alias linutil="curl -fsSL https://christitus.com/linux | sh"

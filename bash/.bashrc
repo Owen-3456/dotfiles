@@ -31,6 +31,8 @@ export HISTCONTROL=erasedups:ignoredups:ignorespace
 
 # Check the window size after each command and, if necessary, update the values of LINES and COLUMNS
 shopt -s checkwinsize
+# Corrects minor spelling errors in directory names when using cd
+shopt -s cdspell
 
 # Causes bash to append to history instead of overwriting it so if you start a new terminal, you have old session history
 shopt -s histappend
@@ -94,8 +96,15 @@ alias cp='cp -i'
 alias mv='mv -i'
 alias rm='trash -v'
 alias mkdir='mkdir -p'
-alias ls='eza -la --color=auto --group-directories-first'
+alias ls='eza -A --color=auto --group-directories-first --icons'
 alias top='btop'
+alias htop='btop'
+alias man='tldr'
+
+# Git alias's
+alias gl='git log --oneline --graph --decorate --all'
+alias gs='git status -sb'
+
 
 # Linutil alias
 alias linutil="curl -fsSL https://christitus.com/linux | sh"

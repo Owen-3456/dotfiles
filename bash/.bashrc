@@ -1,5 +1,6 @@
 #bash
 #!/usr/bin/env bash
+
 iatest=$(expr index "$-" i)
 
 # Source global definitions
@@ -100,6 +101,7 @@ alias ls='eza -l -A --color=auto --group-directories-first --icons'
 alias top='btop'
 alias htop='btop'
 alias man='tldr'
+alias neofetch='fastfetch'
 
 # Git alias's
 alias gl='git log --oneline --graph --decorate --all'

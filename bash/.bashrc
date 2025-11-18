@@ -93,7 +93,7 @@ export LESS_TERMCAP_us=$'\E[01;32m'
 # EG: the ls command is aliased, but to use the normal ls command you would type \ls
 
 # Alias's to modified commands
-alias cp='cp -i'
+alias cp='cpp'
 alias mv='mv -i'
 alias rm='trash -v'
 alias mkdir='mkdir -p'
@@ -102,6 +102,7 @@ alias top='btop'
 alias htop='btop'
 alias man='tldr'
 alias neofetch='fastfetch'
+alias wget='wget --show-progress --progress=bar:force:noscroll'
 
 # Git alias's
 alias gl='git log --oneline --graph --decorate --all'

@@ -649,8 +649,7 @@ ytdl() {
                 -o '%(title)s-%(id)s-%(format_id)s.%(ext)s' "$1"
         fi
     )
-}merge-output-format mp4 -o '%(title)s-%(id)s-%(format_id)s.%(ext)s' "$1"
-fi
+}
 
 #######################################################
 # Final settings and init scripts

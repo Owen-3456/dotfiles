@@ -621,17 +621,35 @@ upgradesys() {
     fi
 }
 
-# Youtube download script
-if [ ! -d ~/Downloads/Videos ]; then
-    mkdir -p ~/Downloads/Videos
-fi
-
-cd ~/Downloads/Videos || return
-
-if hash aria2c 2> /dev/null; then
-  youtube-dl -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' --merge-output-format mp4 --external-downloader aria2c -o '%(title)s-%(id)s-%(format_id)s.%(ext)s' "$1"
-else
-  youtube-dl -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' --merge-output-format mp4 -o '%(title)s-%(id)s-%(format_id)s.%(ext)s' "$1"
+# Youtube download function
+ytdl() {
+    local download_dir="$HOME/Downloads/Videos"
+    
+    if [ -z "$1" ]; then
+        echo "Error: Please provide a YouTube URL"
+        echo "Usage: ytdl <youtube-url>"
+        return 1
+    fi
+    
+    if [ ! -d "$download_dir" ]; then
+        mkdir -p "$download_dir"
+    fi
+    
+    (
+        cd "$download_dir" || return
+        
+        if hash aria2c 2> /dev/null; then
+            youtube-dl -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' \
+                --merge-output-format mp4 \
+                --external-downloader aria2c \
+                -o '%(title)s-%(id)s-%(format_id)s.%(ext)s' "$1"
+        else
+            youtube-dl -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' \
+                --merge-output-format mp4 \
+                -o '%(title)s-%(id)s-%(format_id)s.%(ext)s' "$1"
+        fi
+    )
+}merge-output-format mp4 -o '%(title)s-%(id)s-%(format_id)s.%(ext)s' "$1"
 fi
 
 #######################################################

@@ -653,7 +653,7 @@ ytdl() {
 
 openremote() {
     url=$(git remote get-url origin)
-    open "$url" || echo "No remote found"
+    xdg-open "$url" || echo "No remote found"
 }
 
 #######################################################

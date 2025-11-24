@@ -5,14 +5,14 @@ iatest=$(expr index "$-" i)
 
 # Source global definitions
 if [ -f /etc/bashrc ]; then
-	. /etc/bashrc
+    . /etc/bashrc
 fi
 
 # Enable bash programmable completion features in interactive shells
 if [ -f /usr/share/bash-completion/bash_completion ]; then
-	. /usr/share/bash-completion/bash_completion
+    . /usr/share/bash-completion/bash_completion
 elif [ -f /etc/bash_completion ]; then
-	. /etc/bash_completion
+    . /etc/bash_completion
 fi
 
 #######################################################
@@ -68,7 +68,7 @@ export LS_COLORS='no=00:fi=00:di=00;34:ln=01;36:pi=40;33:so=01;35:do=01;35:bd=40
 #export GREP_OPTIONS='--color=auto' #deprecated
 
 # Check if ripgrep is installed
-if command -v rg &> /dev/null; then
+if command -v rg &>/dev/null; then
     # Alias grep to rg if ripgrep is installed
     alias grep='rg'
 else
@@ -109,7 +109,6 @@ alias cls='clear'
 alias gl='git log --oneline --graph --decorate --all'
 alias gs='git status -sb'
 
-
 # Linutil alias
 alias linutil="curl -fsSL https://christitus.com/linux | sh"
 
@@ -118,7 +117,6 @@ alias cd='z'
 
 # Remove a directory and all files
 alias rmd='trash --recursive --force --verbose '
-
 
 # To see if a command is aliased, a file, or a built-in command
 alias checkcommand="type -t"
@@ -131,45 +129,45 @@ alias openports='netstat -nape --inet'
 #######################################################
 # Extracts any archive(s) (if unp isn't installed)
 extract() {
-	for archive in "$@"; do
-		if [ -f "$archive" ]; then
-			case $archive in
-			*.tar.bz2) tar xvjf $archive ;;
-			*.tar.gz) tar xvzf $archive ;;
-			*.bz2) bunzip2 $archive ;;
-			*.rar) rar x $archive ;;
-			*.gz) gunzip $archive ;;
-			*.tar) tar xvf $archive ;;
-			*.tbz2) tar xvjf $archive ;;
-			*.tgz) tar xvzf $archive ;;
-			*.zip) unzip $archive ;;
-			*.Z) uncompress $archive ;;
-			*.7z) 7z x $archive ;;
-			*) echo "don't know how to extract '$archive'..." ;;
-			esac
-		else
-			echo "'$archive' is not a valid file!"
-		fi
-	done
+    for archive in "$@"; do
+        if [ -f "$archive" ]; then
+            case $archive in
+            *.tar.bz2) tar xvjf $archive ;;
+            *.tar.gz) tar xvzf $archive ;;
+            *.bz2) bunzip2 $archive ;;
+            *.rar) rar x $archive ;;
+            *.gz) gunzip $archive ;;
+            *.tar) tar xvf $archive ;;
+            *.tbz2) tar xvjf $archive ;;
+            *.tgz) tar xvzf $archive ;;
+            *.zip) unzip $archive ;;
+            *.Z) uncompress $archive ;;
+            *.7z) 7z x $archive ;;
+            *) echo "don't know how to extract '$archive'..." ;;
+            esac
+        else
+            echo "'$archive' is not a valid file!"
+        fi
+    done
 }
 
 # Searches for text in all files in the current folder
 ftext() {
-	# -i case-insensitive
-	# -I ignore binary files
-	# -H causes filename to be printed
-	# -r recursive search
-	# -n causes line number to be printed
-	# optional: -F treat search term as a literal, not a regular expression
-	# optional: -l only print filenames and not the matching lines ex. grep -irl "$1" *
-	grep -iIHrn --color=always "$1" . | less -r
+    # -i case-insensitive
+    # -I ignore binary files
+    # -H causes filename to be printed
+    # -r recursive search
+    # -n causes line number to be printed
+    # optional: -F treat search term as a literal, not a regular expression
+    # optional: -l only print filenames and not the matching lines ex. grep -irl "$1" *
+    grep -iIHrn --color=always "$1" . | less -r
 }
 
 # Copy file with a progress bar
 cpp() {
     set -e
     strace -q -ewrite cp -- "${1}" "${2}" 2>&1 |
-    awk '{
+        awk '{
         count += $NF
         if (count % 10 == 0) {
             percent = count / total_size * 100
@@ -187,120 +185,118 @@ cpp() {
 
 # Copy and go to the directory
 cpg() {
-	if [ -d "$2" ]; then
-		cp "$1" "$2" && cd "$2"
-	else
-		cp "$1" "$2"
-	fi
+    if [ -d "$2" ]; then
+        cp "$1" "$2" && cd "$2"
+    else
+        cp "$1" "$2"
+    fi
 }
 
 # Move and go to the directory
 mvg() {
-	if [ -d "$2" ]; then
-		mv "$1" "$2" && cd "$2"
-	else
-		mv "$1" "$2"
-	fi
+    if [ -d "$2" ]; then
+        mv "$1" "$2" && cd "$2"
+    else
+        mv "$1" "$2"
+    fi
 }
 
 # Create and go to the directory
 mkcd() {
-	mkdir -p "$1"
-	cd "$1"
+    mkdir -p "$1"
+    cd "$1"
 }
 
 # Goes up a specified number of directories  (i.e. up 4)
 up() {
-	local d=""
-	limit=$1
-	for ((i = 1; i <= limit; i++)); do
-		d=$d/..
-	done
-	d=$(echo $d | sed 's/^\///')
-	if [ -z "$d" ]; then
-		d=..
-	fi
-	cd $d
+    local d=""
+    limit=$1
+    for ((i = 1; i <= limit; i++)); do
+        d=$d/..
+    done
+    d=$(echo $d | sed 's/^\///')
+    if [ -z "$d" ]; then
+        d=..
+    fi
+    cd $d
 }
 
 # Returns the last 2 fields of the working directory
 pwdtail() {
-	pwd | awk -F/ '{nlast = NF -1;print $nlast"/"$NF}'
+    pwd | awk -F/ '{nlast = NF -1;print $nlast"/"$NF}'
 }
 
 # Show the current distribution
-distribution () {
-    local dtype="unknown"  # Default to unknown
+distribution() {
+    local dtype="unknown" # Default to unknown
 
     # Use /etc/os-release for modern distro identification
     if [ -r /etc/os-release ]; then
         source /etc/os-release
         case $ID in
-            fedora|rhel|centos)
-                dtype="redhat"
-                ;;
-            sles|opensuse*)
-                dtype="suse"
-                ;;
-            ubuntu|debian)
-                dtype="debian"
-                ;;
-            gentoo)
-                dtype="gentoo"
-                ;;
-            arch|manjaro)
-                dtype="arch"
-                ;;
-            slackware)
-                dtype="slackware"
-                ;;
-            *)
-                # Check ID_LIKE only if dtype is still unknown
-                if [ -n "$ID_LIKE" ]; then
-                    case $ID_LIKE in
-                        *fedora*|*rhel*|*centos*)
-                            dtype="redhat"
-                            ;;
-                        *sles*|*opensuse*)
-                            dtype="suse"
-                            ;;
-                        *ubuntu*|*debian*)
-                            dtype="debian"
-                            ;;
-                        *gentoo*)
-                            dtype="gentoo"
-                            ;;
-                        *arch*)
-                            dtype="arch"
-                            ;;
-                        *slackware*)
-                            dtype="slackware"
-                            ;;
-                    esac
-                fi
+        fedora | rhel | centos)
+            dtype="redhat"
+            ;;
+        sles | opensuse*)
+            dtype="suse"
+            ;;
+        ubuntu | debian)
+            dtype="debian"
+            ;;
+        gentoo)
+            dtype="gentoo"
+            ;;
+        arch | manjaro)
+            dtype="arch"
+            ;;
+        slackware)
+            dtype="slackware"
+            ;;
+        *)
+            # Check ID_LIKE only if dtype is still unknown
+            if [ -n "$ID_LIKE" ]; then
+                case $ID_LIKE in
+                *fedora* | *rhel* | *centos*)
+                    dtype="redhat"
+                    ;;
+                *sles* | *opensuse*)
+                    dtype="suse"
+                    ;;
+                *ubuntu* | *debian*)
+                    dtype="debian"
+                    ;;
+                *gentoo*)
+                    dtype="gentoo"
+                    ;;
+                *arch*)
+                    dtype="arch"
+                    ;;
+                *slackware*)
+                    dtype="slackware"
+                    ;;
+                esac
+            fi
 
-                # If ID or ID_LIKE is not recognized, keep dtype as unknown
-                ;;
+            # If ID or ID_LIKE is not recognized, keep dtype as unknown
+            ;;
         esac
     fi
 
     echo $dtype
 }
 
-
 DISTRIBUTION=$(distribution)
 if [ "$DISTRIBUTION" = "redhat" ] || [ "$DISTRIBUTION" = "arch" ]; then
-      alias cat='bat'
+    alias cat='bat'
 else
-      alias cat='batcat'
-fi 
-
+    alias cat='batcat'
+fi
 
 # IP address lookup
 alias whatismyip="whatsmyip"
-function whatsmyip () {
+function whatsmyip() {
     # Internal IP Lookup.
-    if command -v ip &> /dev/null; then
+    if command -v ip &>/dev/null; then
         echo -n "Internal IP: "
         ip addr show wlan0 | grep "inet " | awk '{print $2}' | cut -d/ -f1
     else
@@ -388,7 +384,7 @@ installpkg() {
         fi
     elif [ -f /etc/arch-release ]; then
         echo "Arch-based system detected"
-        
+
         # Check if yay is available
         if command -v yay >/dev/null 2>&1; then
             echo "Using yay (includes AUR packages)"
@@ -528,7 +524,7 @@ removepkg() {
 
 upgradesys() {
     echo "Starting system upgrade..."
-    
+
     if [ -f /etc/debian_version ]; then
         echo "Debian-based system detected"
         # Check if nala is available, fallback to apt
@@ -539,13 +535,13 @@ upgradesys() {
                 echo "Failed to update package list"
                 return 1
             fi
-            
+
             echo "Upgrading system packages..."
             if ! sudo nala upgrade -y; then
                 echo "Failed to upgrade packages"
                 return 1
             fi
-            
+
             echo "Cleaning up..."
             sudo nala autopurge -y
             sudo nala clean
@@ -556,18 +552,18 @@ upgradesys() {
                 echo "Failed to update package list"
                 return 1
             fi
-            
+
             echo "Upgrading system packages..."
             if ! sudo apt upgrade -y; then
                 echo "Failed to upgrade packages"
                 return 1
             fi
-            
+
             echo "Cleaning up..."
             sudo apt autoremove -y
             sudo apt autoclean
         fi
-        
+
         # Check if reboot is required
         if [ -f /var/run/reboot-required ]; then
             echo "WARNING: System reboot is required to complete the upgrade."
@@ -579,7 +575,7 @@ upgradesys() {
                 echo "Please remember to reboot your system later."
             fi
         fi
-        
+
     elif [ -f /etc/arch-release ]; then
         echo "Arch-based system detected"
         echo "Updating package database and upgrading system..."
@@ -587,10 +583,10 @@ upgradesys() {
             echo "Failed to upgrade system"
             return 1
         fi
-        
+
         echo "Cleaning package cache..."
         sudo pacman -Sc --noconfirm
-        
+
         # Check for orphaned packages
         local orphans=$(pacman -Qtdq 2>/dev/null)
         if [ -n "$orphans" ]; then
@@ -601,16 +597,16 @@ upgradesys() {
                 echo "Orphaned packages removed"
             fi
         fi
-        
+
     else
         echo "Error: Unknown distribution. This function supports Debian/Ubuntu and Arch-based systems only."
         return 1
     fi
-    
+
     echo "System upgrade completed successfully!"
     echo "Kernel: $(uname -r)"
     echo "Uptime: $(uptime -p)"
-    
+
     # Show available updates if any (for Debian-based systems)
     if [ -f /etc/debian_version ]; then
         local updates=$(apt list --upgradable 2>/dev/null | grep -c upgradable)
@@ -625,21 +621,21 @@ upgradesys() {
 # Youtube download function
 ytdl() {
     local download_dir="$HOME/Downloads/Videos"
-    
+
     if [ -z "$1" ]; then
         echo "Error: Please provide a YouTube URL"
         echo "Usage: ytdl <youtube-url>"
         return 1
     fi
-    
+
     if [ ! -d "$download_dir" ]; then
         mkdir -p "$download_dir"
     fi
-    
+
     (
         cd "$download_dir" || return
-        
-        if hash aria2c 2> /dev/null; then
+
+        if hash aria2c 2>/dev/null; then
             youtube-dl -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' \
                 --merge-output-format mp4 \
                 --external-downloader aria2c \
@@ -671,6 +667,6 @@ export PATH=$PATH:"$HOME/.local/bin:$HOME/.cargo/bin:/var/lib/flatpak/exports/bi
 
 eval "$(starship init bash)"
 eval "$(zoxide init bash)"
-if command -v brew &> /dev/null; then
+if command -v brew &>/dev/null; then
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 fi

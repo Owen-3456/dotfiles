@@ -103,6 +103,7 @@ alias htop='btop'
 alias man='tldr'
 alias neofetch='fastfetch'
 alias wget='wget --show-progress --progress=bar:force:noscroll'
+alias cls='clear'
 
 # Git alias's
 alias gl='git log --oneline --graph --decorate --all'

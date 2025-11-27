@@ -37,7 +37,8 @@ shopt -s cdspell
 
 # Causes bash to append to history instead of overwriting it so if you start a new terminal, you have old session history
 shopt -s histappend
-PROMPT_COMMAND='history -a'
+# Append to existing PROMPT_COMMAND instead of overwriting it
+PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND; }history -a"
 
 # set up XDG folders
 export XDG_DATA_HOME="$HOME/.local/share"
@@ -60,7 +61,7 @@ if [[ $iatest -gt 0 ]]; then bind "set show-all-if-ambiguous On"; fi
 
 # Set the default editor
 export EDITOR=nano
-export VISUAL=code
+export VISUAL="code -w"
 
 # To have colors for ls and all grep commands such as grep, egrep and zgrep
 export CLICOLOR=1
@@ -93,15 +94,15 @@ export LESS_TERMCAP_us=$'\E[01;32m'
 # EG: the ls command is aliased, but to use the normal ls command you would type \ls
 
 # Alias's to modified commands
-alias cp='cpp'
+command -v cpp >/dev/null 2>&1 && alias cp='cpp'
 alias mv='mv -i'
-alias rm='trash -v'
+command -v trash >/dev/null 2>&1 && alias rm='trash -v'
 alias mkdir='mkdir -p'
-alias ls='eza -l -A --color=auto --group-directories-first --icons'
-alias top='btop'
-alias htop='btop'
-alias man='tldr'
-alias neofetch='fastfetch'
+command -v eza >/dev/null 2>&1 && alias ls='eza -l -A --color=auto --group-directories-first --icons'
+command -v btop >/dev/null 2>&1 && alias top='btop'
+command -v btop >/dev/null 2>&1 && alias htop='btop'
+command -v tldr >/dev/null 2>&1 && alias man='tldr'
+command -v fastfetch >/dev/null 2>&1 && alias neofetch='fastfetch'
 alias wget='wget --show-progress --progress=bar:force:noscroll'
 alias cls='clear'
 
@@ -112,8 +113,8 @@ alias gs='git status -sb'
 # Linutil alias
 alias linutil="curl -fsSL https://christitus.com/linux | sh"
 
-# Zoxide alias for cd
-alias cd='z'
+# Zoxide alias for cd (only if zoxide is installed)
+command -v z >/dev/null 2>&1 && alias cd='z'
 
 # Remove a directory and all files
 alias rmd='trash --recursive --force --verbose '
@@ -285,28 +286,29 @@ distribution() {
     echo $dtype
 }
 
-DISTRIBUTION=$(distribution)
-if [ "$DISTRIBUTION" = "redhat" ] || [ "$DISTRIBUTION" = "arch" ]; then
-    alias cat='bat'
-else
+# Prefer bat/batcat only if available; fall back gracefully
+if command -v batcat >/dev/null 2>&1; then
     alias cat='batcat'
+elif command -v bat >/dev/null 2>&1; then
+    alias cat='bat'
 fi
 
 # IP address lookup
 alias whatismyip="whatsmyip"
 function whatsmyip() {
-    # Internal IP Lookup.
-    if command -v ip &>/dev/null; then
-        echo -n "Internal IP: "
-        ip addr show wlan0 | grep "inet " | awk '{print $2}' | cut -d/ -f1
+    # Internal IP Lookup (auto-detect active interface)
+    echo -n "Internal IP: "
+    if command -v ip >/dev/null 2>&1; then
+        ip -4 addr show $(ip route get 8.8.8.8 2>/dev/null | awk '/dev/ {print $5; exit}') 2>/dev/null | awk '/inet /{print $2}' | cut -d/ -f1 | head -n1
+    elif command -v ifconfig >/dev/null 2>&1; then
+        ifconfig 2>/dev/null | awk '/inet / && $2!="127.0.0.1" {print $2; exit}'
     else
-        echo -n "Internal IP: "
-        ifconfig wlan0 | grep "inet " | awk '{print $2}'
+        echo "Unknown"
     fi
 
     # External IP Lookup
     echo -n "External IP: "
-    curl -4 ifconfig.me
+    curl -4 -s ifconfig.me || echo "Unknown"
 }
 
 function hb {
@@ -663,10 +665,10 @@ if [[ $- == *i* ]]; then
     bind '"\C-f":"zi\n"'
 fi
 
-export PATH=$PATH:"$HOME/.local/bin:$HOME/.cargo/bin:/var/lib/flatpak/exports/bin:/.local/share/flatpak/exports/bin"
+export PATH="$PATH:$HOME/.local/bin:$HOME/.cargo/bin:/var/lib/flatpak/exports/bin:$HOME/.local/share/flatpak/exports/bin"
 
 eval "$(starship init bash)"
-eval "$(zoxide init bash)"
+command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init bash)"
 if command -v brew &>/dev/null; then
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 fi

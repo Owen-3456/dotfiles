@@ -368,6 +368,32 @@ upgradesys() {
     fi
 }
 
+# Fzfkill: interactively search and kill processes with fzf
+fzfkill() {
+    if ! command -v fzf >/dev/null 2>&1; then
+        echo "Error: fzf is required but not installed. Please install fzf first."
+        return 1
+    fi
+
+    local pids
+    pids=$(ps -eo pid,user,%cpu,%mem,comm --sort=-%cpu | sed 1d |
+        fzf --multi --header="Select processes to kill (TAB for multi-select, ENTER to confirm)" \
+            --preview 'ps -fp {1} 2>/dev/null' \
+            --preview-window=right:50%:wrap | awk '{print $1}')
+
+    if [ -n "$pids" ]; then
+        echo "Selected PIDs: $pids"
+        read -p "Are you sure you want to kill these processes? (y/N): " confirm
+        if [[ $confirm =~ ^[Yy]$ ]]; then
+            echo "$pids" | xargs -r kill -9 && echo "Processes killed successfully" || echo "Failed to kill some processes"
+        else
+            echo "Operation cancelled"
+        fi
+    else
+        echo "No processes selected"
+    fi
+}
+
 # Ytdl: download YouTube video into ~/Downloads/Videos (mp4)
 ytdl() {
     local download_dir="$HOME/Downloads/Videos"

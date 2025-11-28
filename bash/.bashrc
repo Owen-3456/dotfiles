@@ -102,6 +102,78 @@ alias rmd='trash --recursive --force --verbose '
 alias checkcommand="type -t"
 alias openports='netstat -nape --inet'
 alias whatismyip="whatsmyip"
+command -v xclip >/dev/null 2>&1 && alias clip='xclip -selection clipboard'
+
+# Fun / interactive helpers with dependency checks
+# Ensure prior aliases of these names do not interfere with function definitions
+unalias matrix 2>/dev/null || true
+unalias cowsay 2>/dev/null || true
+unalias excuse 2>/dev/null || true
+matrix() {
+    if ! command -v cmatrix >/dev/null 2>&1; then
+        echo "cmatrix is required for this command. Install now? (y/N): "
+        read -r ans
+        if [[ $ans =~ ^[Yy]$ ]]; then
+            if [ -f /etc/debian_version ]; then
+                if command -v nala >/dev/null 2>&1; then sudo nala install -y cmatrix; else sudo apt install -y cmatrix; fi
+            elif [ -f /etc/arch-release ]; then
+                sudo pacman -S --noconfirm cmatrix
+            else
+                echo "Unsupported distro for auto-install."
+                return 1
+            fi
+        else
+            echo "Cancelled."
+            return 1
+        fi
+    fi
+    command cmatrix -s -C cyan
+}
+
+cowsay() {
+    local missing=()
+    command -v cowsay >/dev/null 2>&1 || missing+=(cowsay)
+    command -v fortune >/dev/null 2>&1 || missing+=(fortune-mod)
+    if [ ${#missing[@]} -gt 0 ]; then
+        echo "${missing[*]} required for this command. Install now? (y/N): "
+        read -r ans
+        if [[ $ans =~ ^[Yy]$ ]]; then
+            if [ -f /etc/debian_version ]; then
+                if command -v nala >/dev/null 2>&1; then sudo nala install -y "${missing[@]}"; else sudo apt install -y "${missing[@]}"; fi
+            elif [ -f /etc/arch-release ]; then
+                sudo pacman -S --noconfirm "${missing[@]}"
+            else
+                echo "Unsupported distro for auto-install."
+                return 1
+            fi
+        else
+            echo "Cancelled."
+            return 1
+        fi
+    fi
+    fortune | command cowsay
+}
+
+excuse() {
+    if ! command -v telnet >/dev/null 2>&1; then
+        echo "telnet (inetutils) is required for this command. Install now? (y/N): "
+        read -r ans
+        if [[ $ans =~ ^[Yy]$ ]]; then
+            if [ -f /etc/debian_version ]; then
+                if command -v nala >/dev/null 2>&1; then sudo nala install -y inetutils; else sudo apt install -y inetutils; fi
+            elif [ -f /etc/arch-release ]; then
+                sudo pacman -S --noconfirm inetutils
+            else
+                echo "Unsupported distro for auto-install."
+                return 1
+            fi
+        else
+            echo "Cancelled."
+            return 1
+        fi
+    fi
+    telnet bofh.jeffballard.us 666 2>/dev/null
+}
 
 # =========================
 # Functions
@@ -204,6 +276,11 @@ whatsmyip() {
     fi
     echo -n "External IP: "
     curl -4 -s ifconfig.me || echo "Unknown"
+}
+
+# Portscan: quick TCP port scan on a target using nmap
+portscan() {
+    nmap -p- "$1" 2>/dev/null
 }
 
 # Hb: upload a file to hastebin-like service and print URL

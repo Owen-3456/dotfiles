@@ -467,15 +467,53 @@ updatepkg() { # Debian/Arch only
 # Updatesys: update/upgrade system packages (Debian/Arch) with optional cleanup
 updatesys() {
     echo "Starting system upgrade..."
+    local packages_updated=0
+    local start_time=$(date +%s)
 
     if [ -f /etc/debian_version ]; then
         echo "Debian-based system detected"
+
+        # Update package lists first
         if command -v nala >/dev/null 2>&1; then
             echo "Using nala for package management"
             sudo nala update || {
                 echo "Failed to update package list"
                 return 1
             }
+        else
+            echo "Using apt for package management"
+            local apt_opts="-o Acquire::Queue-Mode=host -o APT::Acquire::Retries=3"
+            if command -v aria2c >/dev/null 2>&1; then
+                apt_opts="$apt_opts -o Acquire::http::Dl-Limit=0 -o Acquire::https::Dl-Limit=0"
+                echo "Using aria2c for faster downloads"
+            fi
+            sudo apt $apt_opts update || {
+                echo "Failed to update package list"
+                return 1
+            }
+        fi
+
+        # Check for available updates
+        local upgradable_list=$(apt list --upgradable 2>/dev/null | grep -v "^Listing")
+        packages_updated=$(echo "$upgradable_list" | grep -c '^' 2>/dev/null || echo 0)
+
+        if [ "$packages_updated" -eq 0 ]; then
+            echo "No updates available. System is already up to date."
+            return 0
+        fi
+
+        echo ""
+        echo "Available updates ($packages_updated packages):"
+        echo "$upgradable_list" | cut -d/ -f1 | column
+        echo ""
+        read -p "Do you want to upgrade all these packages? (y/N): " confirm
+        if [[ ! $confirm =~ ^[Yy]$ ]]; then
+            echo "Update cancelled."
+            return 0
+        fi
+
+        # Perform upgrade
+        if command -v nala >/dev/null 2>&1; then
             sudo nala upgrade -y || {
                 echo "Failed to upgrade packages"
                 return 1
@@ -483,12 +521,7 @@ updatesys() {
             sudo nala autopurge -y
             sudo nala clean
         else
-            echo "Using apt for package management"
-            sudo apt update || {
-                echo "Failed to update package list"
-                return 1
-            }
-            sudo apt upgrade -y || {
+            sudo apt $apt_opts upgrade -y || {
                 echo "Failed to upgrade packages"
                 return 1
             }
@@ -511,14 +544,91 @@ updatesys() {
 
     elif [ -f /etc/arch-release ]; then
         echo "Arch-based system detected"
-        echo "Updating package database and upgrading system..."
-        sudo pacman -Syu --noconfirm || {
-            echo "Failed to upgrade system"
-            return 1
-        }
 
-        echo "Cleaning package cache (keeping installed versions)..."
-        yes | sudo pacman -Sc >/dev/null 2>&1 || true
+        if command -v yay >/dev/null 2>&1; then
+            echo "Checking for updates (pacman + AUR)..."
+            # Sync database
+            yay -Sy >/dev/null 2>&1 || {
+                echo "Failed to update package database"
+                return 1
+            }
+
+            # Get list of upgradable packages
+            local upgradable_list=$(yay -Qu 2>/dev/null)
+            packages_updated=$(echo "$upgradable_list" | grep -c '^' 2>/dev/null || echo 0)
+
+            if [ "$packages_updated" -eq 0 ]; then
+                echo "No updates available. System is already up to date."
+                return 0
+            fi
+
+            echo ""
+            echo "Available updates ($packages_updated packages):"
+            echo "$upgradable_list" | awk '{print $1}' | column
+            echo ""
+            read -p "Do you want to upgrade all these packages? (y/N): " confirm
+            if [[ ! $confirm =~ ^[Yy]$ ]]; then
+                echo "Update cancelled."
+                return 0
+            fi
+
+            # Enable parallel downloads
+            local yay_opts="--noconfirm"
+            if grep -q "^ParallelDownloads" /etc/pacman.conf 2>/dev/null; then
+                echo "Parallel downloads enabled"
+            else
+                echo "Note: Enable ParallelDownloads in /etc/pacman.conf for faster updates"
+            fi
+
+            yay -Su $yay_opts || {
+                echo "Failed to upgrade system"
+                return 1
+            }
+
+            echo "Cleaning package cache..."
+            yay -Sc --noconfirm 2>/dev/null || true
+        else
+            echo "Checking for updates..."
+            # Sync database
+            sudo pacman -Sy >/dev/null 2>&1 || {
+                echo "Failed to update package database"
+                return 1
+            }
+
+            # Get list of upgradable packages
+            local upgradable_list=$(pacman -Qu 2>/dev/null)
+            packages_updated=$(echo "$upgradable_list" | grep -c '^' 2>/dev/null || echo 0)
+
+            if [ "$packages_updated" -eq 0 ]; then
+                echo "No updates available. System is already up to date."
+                return 0
+            fi
+
+            echo ""
+            echo "Available updates ($packages_updated packages):"
+            echo "$upgradable_list" | awk '{print $1}' | column
+            echo ""
+            read -p "Do you want to upgrade all these packages? (y/N): " confirm
+            if [[ ! $confirm =~ ^[Yy]$ ]]; then
+                echo "Update cancelled."
+                return 0
+            fi
+
+            # Enable parallel downloads if not already set
+            if grep -q "^ParallelDownloads" /etc/pacman.conf 2>/dev/null; then
+                echo "Parallel downloads enabled"
+            else
+                echo "Note: Enable ParallelDownloads in /etc/pacman.conf for faster updates"
+            fi
+
+            sudo pacman -Su --noconfirm || {
+                echo "Failed to upgrade system"
+                return 1
+            }
+
+            echo "Cleaning package cache (keeping installed versions)..."
+            yes | sudo pacman -Sc >/dev/null 2>&1 || true
+        fi
 
         # Check for orphaned packages
         local orphans=$(pacman -Qtdq 2>/dev/null)
@@ -532,24 +642,47 @@ updatesys() {
             fi
         fi
 
+        # Clear cache directories
+        echo "Cleaning additional caches..."
+        paccache -rk 2 2>/dev/null || true # Keep only 2 most recent versions if paccache is available
+
     else
         echo "Error: Unknown distribution. This function supports Debian/Ubuntu and Arch-based systems only."
         return 1
     fi
+
+    # Calculate duration
+    local end_time=$(date +%s)
+    local duration=$((end_time - start_time))
+    local minutes=$((duration / 60))
+    local seconds=$((duration % 60))
 
     # Success summary (runs for both distros)
     echo ""
     echo "===================================="
     echo "System upgrade completed successfully!"
     echo "===================================="
+    echo "Packages updated: $packages_updated"
+    echo "Time taken: ${minutes}m ${seconds}s"
     echo "Kernel: $(uname -r)"
     echo "Uptime: $(uptime -p)"
 
-    # Show remaining updates for Debian systems
+    # Show remaining updates
     if [ -f /etc/debian_version ]; then
-        local updates=$(apt list --upgradable 2>/dev/null | grep -c upgradable)
-        if [ "$updates" -gt 1 ]; then
-            echo "Pending updates: $((updates - 1))"
+        local updates=$(apt list --upgradable 2>/dev/null | grep -v "^Listing" | wc -l)
+        if [ "$updates" -gt 0 ]; then
+            echo "Pending updates: $updates"
+        else
+            echo "System is up to date"
+        fi
+    elif [ -f /etc/arch-release ]; then
+        if command -v yay >/dev/null 2>&1; then
+            local updates=$(yay -Qu 2>/dev/null | wc -l)
+        else
+            local updates=$(pacman -Qu 2>/dev/null | wc -l)
+        fi
+        if [ "$updates" -gt 0 ]; then
+            echo "Pending updates: $updates"
         else
             echo "System is up to date"
         fi

@@ -477,13 +477,19 @@ ytdl() {
         echo "Usage: ytdl <youtube-url>"
         return 1
     }
+
+    if ! command -v yt-dlp >/dev/null 2>&1; then
+        echo "Error: yt-dlp is not installed. Please install it first."
+        return 1
+    fi
+
     [ ! -d "$download_dir" ] && mkdir -p "$download_dir"
     (
-        cd "$download_dir" || return
-        if hash aria2c 2>/dev/null; then
-            youtube-dl -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' --merge-output-format mp4 --external-downloader aria2c -o '%(title)s-%(id)s-%(format_id)s.%(ext)s' "$1"
+        builtin cd "$download_dir" || return
+        if command -v aria2c >/dev/null 2>&1; then
+            yt-dlp -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' --merge-output-format mp4 --external-downloader aria2c -o '%(title)s-%(id)s.%(ext)s' "$1"
         else
-            youtube-dl -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' --merge-output-format mp4 -o '%(title)s-%(id)s-%(format_id)s.%(ext)s' "$1"
+            yt-dlp -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' --merge-output-format mp4 -o '%(title)s-%(id)s.%(ext)s' "$1"
         fi
     )
 }

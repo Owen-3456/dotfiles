@@ -16,7 +16,7 @@ fi
 
 # History configuration
 export HISTFILESIZE=10000
-export HISTSIZE=500
+export HISTSIZE=5000
 export HISTTIMEFORMAT="%F %T"
 export HISTCONTROL=erasedups:ignoredups:ignorespace
 PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND; }history -a"

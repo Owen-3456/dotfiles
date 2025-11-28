@@ -464,8 +464,8 @@ updatepkg() { # Debian/Arch only
     fi
 }
 
-# Upgradesys: update/upgrade system packages (Debian/Arch) with optional cleanup
-upgradesys() {
+# Updatesys: update/upgrade system packages (Debian/Arch) with optional cleanup
+updatesys() {
     echo "Starting system upgrade..."
 
     if [ -f /etc/debian_version ]; then

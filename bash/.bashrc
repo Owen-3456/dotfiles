@@ -9,10 +9,12 @@ iatest=$(expr index "$-" i)
 # Source global definitions
 if [ -f /etc/bashrc ]; then . /etc/bashrc; fi
 
-# Shell options
-shopt -s checkwinsize
-shopt -s cdspell
-shopt -s histappend
+# Shell options (interactive)
+if [[ $- == *i* ]]; then
+    shopt -s checkwinsize
+    shopt -s cdspell
+    shopt -s histappend
+fi
 
 # History configuration
 export HISTFILESIZE=10000

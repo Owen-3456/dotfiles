@@ -79,7 +79,6 @@ fi
 # Aliases
 # =========================
 # Core aliases
-command -v cpp >/dev/null 2>&1 && alias cp='cpp'
 alias mv='mv -i'
 command -v trash >/dev/null 2>&1 && alias rm='trash -v'
 alias mkdir='mkdir -p'
@@ -227,25 +226,24 @@ cpp() {
 # Cpg: copy a file then cd into the destination if it's a directory
 cpg() {
     if [ -d "$2" ]; then
-        cp "$1" "$2" && cd "$2"
+        command cp "$1" "$2" && builtin cd "$2"
     else
-        cp "$1" "$2"
+        command cp "$1" "$2"
     fi
 }
 
 # Mvg: move a file then cd into the destination if it's a directory
 mvg() {
     if [ -d "$2" ]; then
-        mv "$1" "$2" && cd "$2"
+        command mv "$1" "$2" && builtin cd "$2"
     else
-        mv "$1" "$2"
+        command mv "$1" "$2"
     fi
 }
 
 # Mkcd: create a directory (parents) then cd into it
 mkcd() {
-    mkdir -p "$1"
-    cd "$1"
+    command mkdir -p "$1" && builtin cd "$1"
 }
 
 # Up: go up N directory levels (e.g., up 3)
@@ -255,7 +253,7 @@ up() {
     for ((i = 1; i <= limit; i++)); do d=$d/..; done
     d=$(echo $d | sed 's/^\///')
     if [ -z "$d" ]; then d=..; fi
-    cd $d
+    builtin cd "$d"
 }
 
 # Pwdtail: print the last two segments of current path

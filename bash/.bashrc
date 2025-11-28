@@ -97,7 +97,6 @@ alias gs='git status -sb'
 
 # Utility aliases
 alias linutil="curl -fsSL https://christitus.com/linux | sh"
-command -v z >/dev/null 2>&1 && alias cd='z'
 alias rmd='trash --recursive --force --verbose '
 alias checkcommand="type -t"
 alias openports='netstat -nape --inet'
@@ -506,7 +505,10 @@ if [[ $- == *i* ]]; then
 fi
 
 eval "$(starship init bash)"
-command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init bash)"
+if command -v zoxide >/dev/null 2>&1; then
+    eval "$(zoxide init bash)"
+    alias cd='z'
+fi
 if command -v brew &>/dev/null; then
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 fi

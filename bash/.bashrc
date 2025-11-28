@@ -374,6 +374,96 @@ removepkg() { # Debian/Arch only
     fi
 }
 
+# Updatepkg: interactive package update for Debian/Arch (fzf-based)
+updatepkg() { # Debian/Arch only
+    if ! command -v fzf >/dev/null 2>&1; then
+        echo "Error: fzf is required but not installed. Please install fzf first."
+        return 1
+    fi
+
+    if [ -f /etc/debian_version ]; then
+        echo "Checking for updates..."
+        # Update package list first
+        if command -v nala >/dev/null 2>&1; then
+            sudo nala update >/dev/null 2>&1 || {
+                echo "Failed to update package list"
+                return 1
+            }
+            local upgradable=$(apt list --upgradable 2>/dev/null | grep -v "^Listing" | cut -d/ -f1)
+        else
+            sudo apt update >/dev/null 2>&1 || {
+                echo "Failed to update package list"
+                return 1
+            }
+            local upgradable=$(apt list --upgradable 2>/dev/null | grep -v "^Listing" | cut -d/ -f1)
+        fi
+
+        if [ -z "$upgradable" ]; then
+            echo "No updates available"
+            return 0
+        fi
+
+        local selected=$(echo "$upgradable" | fzf --multi --header="Select packages to update (TAB for multi-select, Debian)" \
+            --preview 'apt show {1} 2>/dev/null | head -40' \
+            --preview-window=right:60%:wrap)
+
+        if [ -n "$selected" ]; then
+            if command -v nala >/dev/null 2>&1; then
+                echo "$selected" | xargs -r sudo nala install -y
+            else
+                echo "$selected" | xargs -r sudo apt install -y
+            fi
+        fi
+
+    elif [ -f /etc/arch-release ]; then
+        echo "Checking for updates..."
+
+        if command -v yay >/dev/null 2>&1; then
+            # Update package database first (includes AUR)
+            yay -Sy >/dev/null 2>&1 || {
+                echo "Failed to update package database"
+                return 1
+            }
+
+            local upgradable=$(yay -Qu 2>/dev/null | awk '{print $1}')
+
+            if [ -z "$upgradable" ]; then
+                echo "No updates available"
+                return 0
+            fi
+
+            local selected=$(echo "$upgradable" | fzf --multi --header="Select packages to update (TAB for multi-select, Arch + AUR)" \
+                --preview 'yay -Si {1} 2>/dev/null | head -40' \
+                --preview-window=right:60%:wrap)
+
+            [ -n "$selected" ] && echo "$selected" | xargs -r yay -S --noconfirm
+        else
+            # Update package database first
+            sudo pacman -Sy >/dev/null 2>&1 || {
+                echo "Failed to update package database"
+                return 1
+            }
+
+            local upgradable=$(pacman -Qu 2>/dev/null | awk '{print $1}')
+
+            if [ -z "$upgradable" ]; then
+                echo "No updates available"
+                return 0
+            fi
+
+            local selected=$(echo "$upgradable" | fzf --multi --header="Select packages to update (TAB for multi-select, Arch)" \
+                --preview 'pacman -Si {1} 2>/dev/null | head -40' \
+                --preview-window=right:60%:wrap)
+
+            [ -n "$selected" ] && echo "$selected" | xargs -r sudo pacman -S --noconfirm
+        fi
+
+    else
+        echo "Error: Unknown distribution. Supported: Debian/Ubuntu and Arch."
+        return 1
+    fi
+}
+
 # Upgradesys: update/upgrade system packages (Debian/Arch) with optional cleanup
 upgradesys() {
     echo "Starting system upgrade..."

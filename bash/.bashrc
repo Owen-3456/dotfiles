@@ -4,8 +4,6 @@
 # Core: environment & shell
 # =========================
 
-iatest=$(expr index "$-" i)
-
 # Source global definitions
 if [ -f /etc/bashrc ]; then . /etc/bashrc; fi
 
@@ -24,7 +22,7 @@ export HISTCONTROL=erasedups:ignoredups:ignorespace
 PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND; }history -a"
 
 # Interactive-only terminal tweaks
-if [[ $iatest -gt 0 ]]; then
+if [[ $- == *i* ]]; then
     bind "set bell-style visible"
     bind "set completion-ignore-case on"
     bind "set show-all-if-ambiguous On"

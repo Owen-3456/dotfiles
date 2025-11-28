@@ -120,6 +120,8 @@ alias rmd='trash --recursive --force --verbose '
 alias checkcommand="type -t"
 alias openports='netstat -nape --inet'
 alias whatismyip="whatsmyip"
+alias whatmyip="whatsmyip"
+alias getip="whatsmyip"
 command -v xclip >/dev/null 2>&1 && alias clip='xclip -selection clipboard'
 
 # Fun / interactive helpers with dependency checks
@@ -285,9 +287,9 @@ pwdtail() {
 whatsmyip() {
     echo -n "Internal IP: "
     if command -v ip >/dev/null 2>&1; then
-        ip -4 addr show $(ip route get 8.8.8.8 2>/dev/null | awk '/dev/ {print $5; exit}') 2>/dev/null | awk '/inet /{print $2}' | cut -d/ -f1 | head -n1
-    elif command -v ifconfig >/dev/null 2>&1; then
-        ifconfig 2>/dev/null | awk '/inet / && $2!="127.0.0.1" {print $2; exit}'
+        ip -4 route get 1 2>/dev/null | awk '{print $7; exit}'
+    elif command -v hostname >/dev/null 2>&1 && hostname -I >/dev/null 2>&1; then
+        hostname -I | awk '{print $1}'
     else
         echo "Unknown"
     fi

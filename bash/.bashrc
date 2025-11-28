@@ -41,7 +41,23 @@ export EDITOR=nano
 export VISUAL="code -w"
 
 # Path setup
-export PATH="$PATH:$HOME/.local/bin:$HOME/.cargo/bin:/var/lib/flatpak/exports/bin:$HOME/.local/share/flatpak/exports/bin"
+case ":$PATH:" in
+*":$HOME/.local/bin:"*) ;;
+*) PATH="$PATH:$HOME/.local/bin" ;;
+esac
+case ":$PATH:" in
+*":$HOME/.cargo/bin:"*) ;;
+*) PATH="$PATH:$HOME/.cargo/bin" ;;
+esac
+case ":$PATH:" in
+*":/var/lib/flatpak/exports/bin:"*) ;;
+*) PATH="$PATH:/var/lib/flatpak/exports/bin" ;;
+esac
+case ":$PATH:" in
+*":$HOME/.local/share/flatpak/exports/bin:"*) ;;
+*) PATH="$PATH:$HOME/.local/share/flatpak/exports/bin" ;;
+esac
+export PATH
 
 # =========================
 # Completion

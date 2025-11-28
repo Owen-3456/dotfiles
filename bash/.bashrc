@@ -270,12 +270,12 @@ mkcd() {
 
 # Up: go up N directory levels (e.g., up 3)
 up() {
-    local d=""
-    limit=$1
-    for ((i = 1; i <= limit; i++)); do d=$d/..; done
-    d=$(echo $d | sed 's/^\///')
-    if [ -z "$d" ]; then d=..; fi
-    builtin cd "$d"
+    local levels=${1:-1}
+    local path=""
+    for ((i = 0; i < levels; i++)); do
+        path="../$path"
+    done
+    builtin cd "${path%/}" || return 1
 }
 
 # Pwdtail: print the last two segments of current path

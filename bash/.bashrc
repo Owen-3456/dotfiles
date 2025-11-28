@@ -12,6 +12,7 @@ if [[ $- == *i* ]]; then
     shopt -s checkwinsize
     shopt -s cdspell
     shopt -s histappend
+    shopt -s globstar
 fi
 
 # History configuration

@@ -104,9 +104,14 @@ command -v fastfetch >/dev/null 2>&1 && alias neofetch='fastfetch'
 alias wget='wget --show-progress --progress=bar:force:noscroll'
 alias cls='clear'
 
-# Git aliases
-alias gl='git log --oneline --graph --decorate --all'
-alias gs='git status -sb'
+# Git functions (more flexible than aliases)
+gl() {
+    git log --oneline --graph --decorate --all --color=always "$@" | less -R
+}
+
+gs() {
+    git -c color.status=always status --short --branch "$@"
+}
 
 # Utility aliases
 alias linutil="curl -fsSL https://christitus.com/linux | sh"

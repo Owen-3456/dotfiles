@@ -573,17 +573,39 @@ updatesys() {
             fi
 
             # Enable parallel downloads
-            local yay_opts="--noconfirm"
+            local yay_opts="--noconfirm --overwrite='*'"
+            local failed_packages=()
             if grep -q "^ParallelDownloads" /etc/pacman.conf 2>/dev/null; then
                 echo "Parallel downloads enabled"
             else
                 echo "Note: Enable ParallelDownloads in /etc/pacman.conf for faster updates"
             fi
 
-            yay -Su $yay_opts || {
-                echo "Failed to upgrade system"
-                return 1
-            }
+            # Try to update all packages first
+            echo "Attempting to update all packages..."
+            if ! yay -Su $yay_opts 2>&1; then
+                echo ""
+                echo "Batch update failed. Attempting individual package updates..."
+                echo ""
+
+                # Get list of packages to update
+                local pkg_list=$(echo "$upgradable_list" | awk '{print $1}')
+                local total=$(echo "$pkg_list" | wc -l)
+                local current=0
+
+                # Update each package individually
+                while IFS= read -r pkg; do
+                    ((current++))
+                    echo "[$current/$total] Updating $pkg..."
+                    if ! yay -S --noconfirm --overwrite='*' "$pkg" 2>&1 | tail -20; then
+                        echo "  ✗ Failed to update $pkg"
+                        failed_packages+=("$pkg")
+                    else
+                        echo "  ✓ Updated $pkg"
+                    fi
+                    echo ""
+                done <<<"$pkg_list"
+            fi
 
             echo "Cleaning package cache..."
             yay -Sc --noconfirm 2>/dev/null || true
@@ -615,16 +637,38 @@ updatesys() {
             fi
 
             # Enable parallel downloads if not already set
+            local failed_packages=()
             if grep -q "^ParallelDownloads" /etc/pacman.conf 2>/dev/null; then
                 echo "Parallel downloads enabled"
             else
                 echo "Note: Enable ParallelDownloads in /etc/pacman.conf for faster updates"
             fi
 
-            sudo pacman -Su --noconfirm || {
-                echo "Failed to upgrade system"
-                return 1
-            }
+            # Try to update all packages first
+            echo "Attempting to update all packages..."
+            if ! sudo pacman -Su --noconfirm --overwrite='*' 2>&1; then
+                echo ""
+                echo "Batch update failed. Attempting individual package updates..."
+                echo ""
+
+                # Get list of packages to update
+                local pkg_list=$(echo "$upgradable_list" | awk '{print $1}')
+                local total=$(echo "$pkg_list" | wc -l)
+                local current=0
+
+                # Update each package individually
+                while IFS= read -r pkg; do
+                    ((current++))
+                    echo "[$current/$total] Updating $pkg..."
+                    if ! sudo pacman -S --noconfirm --overwrite='*' "$pkg" 2>&1 | tail -20; then
+                        echo "  ✗ Failed to update $pkg"
+                        failed_packages+=("$pkg")
+                    else
+                        echo "  ✓ Updated $pkg"
+                    fi
+                    echo ""
+                done <<<"$pkg_list"
+            fi
 
             echo "Cleaning package cache (keeping installed versions)..."
             yes | sudo pacman -Sc >/dev/null 2>&1 || true
@@ -663,6 +707,13 @@ updatesys() {
     echo "System upgrade completed successfully!"
     echo "===================================="
     echo "Packages updated: $packages_updated"
+    if [ ${#failed_packages[@]} -gt 0 ]; then
+        echo "Failed packages:"
+        for pkg in "${failed_packages[@]}"; do
+            echo "  - $pkg"
+        done
+        echo "Tip: Close running applications and try again"
+    fi
     echo "Time taken: ${minutes}m ${seconds}s"
     echo "Kernel: $(uname -r)"
     echo "Uptime: $(uptime -p)"

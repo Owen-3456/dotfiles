@@ -821,6 +821,8 @@ if [[ $- == *i* ]] && command -v tmux >/dev/null 2>&1 && [ -z "$TMUX" ]; then
         echo
         if [[ -z "$REPLY" ]] || [[ $REPLY =~ ^[Yy]$ ]]; then
             tmux new-session
+        else
+            clear
         fi
     elif [ "$tmux_session_count" -eq 1 ]; then
         # Exactly one session exists
@@ -835,6 +837,8 @@ if [[ $- == *i* ]] && command -v tmux >/dev/null 2>&1 && [ -z "$TMUX" ]; then
         echo
         if [[ -z "$REPLY" ]] || [[ $REPLY =~ ^[Yy]$ ]]; then
             tmux attach-session -t "$session_name"
+        else
+            clear
         fi
     else
         # Multiple sessions exist
@@ -851,6 +855,8 @@ if [[ $- == *i* ]] && command -v tmux >/dev/null 2>&1 && [ -z "$TMUX" ]; then
         read -r session_name
         if [ -n "$session_name" ]; then
             tmux attach-session -t "$session_name" 2>/dev/null || echo -e "${YELLOW}⚠${RESET} Session '${session_name}' not found."
+        else
+            clear
         fi
     fi
 fi

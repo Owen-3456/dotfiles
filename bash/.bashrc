@@ -97,7 +97,38 @@ fi
 alias mv='mv -i'
 command -v trash >/dev/null 2>&1 && alias rm='trash -v'
 alias mkdir='mkdir -p'
-command -v eza >/dev/null 2>&1 && alias ls='eza -l -A --color=auto --group-directories-first --icons'
+
+# Enhanced ls variants using eza (with fallback to ls)
+if command -v eza >/dev/null 2>&1; then
+    alias ls='eza -l --group-directories-first --icons'                  # no hidden files
+    alias la='eza -la --icons --group-directories-first'                 # show hidden files
+    alias lx='eza -la --sort=ext --icons --group-directories-first'      # sort by extension
+    alias lk='eza -la --sort=size --icons --group-directories-first'     # sort by size
+    alias lc='eza -la --sort=changed --icons --group-directories-first'  # sort by change time
+    alias lu='eza -la --sort=accessed --icons --group-directories-first' # sort by access time
+    alias lr='eza -la --recurse --icons --group-directories-first'       # recursive ls
+    alias lt='eza -la --sort=modified --icons --group-directories-first' # sort by date
+    alias lm='eza -la --icons --group-directories-first | more'          # pipe through 'more'
+    alias lw='eza -a --icons --group-directories-first'                  # wide listing format
+    alias ll='eza -la --icons --group-directories-first'                 # long listing format
+    alias lf='eza -la --icons -f'                                        # files only
+    alias ldir='eza -la --icons -D'                                      # directories only
+    alias ltree='eza -la --tree --icons --group-directories-first'       # tree view
+else
+    alias ls='ls -l --color=auto' # no hidden files
+    alias la='ls -Alh'
+    alias lx='ls -lXBha'
+    alias lk='ls -lSrha'
+    alias lc='ls -ltcrha'
+    alias lu='ls -lturha'
+    alias lr='ls -lRha'
+    alias lt='ls -ltrha'
+    alias lm='ls -alh | more'
+    alias lw='ls -xAh'
+    alias ll='ls -Flsa'
+    alias lf="ls -la | grep -v '^d'"
+    alias ldir="ls -la | grep '^d'"
+fi
 command -v btop >/dev/null 2>&1 && alias top='btop'
 command -v btop >/dev/null 2>&1 && alias htop='btop'
 command -v tldr >/dev/null 2>&1 && alias man='tldr'

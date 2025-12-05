@@ -321,6 +321,55 @@ hb() {
     fi
 }
 
+# Serve: start a temporary HTTP server in current directory
+serve() {
+    local port="${1:-8000}"
+    local ip
+
+    # Get local IP address
+    if command -v ip >/dev/null 2>&1; then
+        ip=$(ip -4 route get 1 2>/dev/null | awk '{print $7; exit}')
+    elif command -v hostname >/dev/null 2>&1; then
+        ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+    fi
+    ip="${ip:-localhost}"
+
+    local url="http://${ip}:${port}"
+
+    echo ""
+    echo "┌─────────────────────────────────────┐"
+    echo "│  🌐 HTTP Server                     │"
+    echo "├─────────────────────────────────────┤"
+    echo "│  Local:   http://localhost:${port}"
+    echo "│  Network: ${url}"
+    echo "│  Dir:     $(pwd)"
+    echo "└─────────────────────────────────────┘"
+
+    # Copy URL to clipboard if xclip is available
+    if command -v xclip >/dev/null 2>&1; then
+        echo -n "$url" | xclip -selection clipboard
+        echo "Copied link to clipboard"
+    fi
+
+    echo ""
+    echo "Press Ctrl+C to stop the server"
+    echo ""
+    echo "Logs:"
+    echo ""
+
+    # Start server (try python3, then python, then php)
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -m http.server "$port"
+    elif command -v python >/dev/null 2>&1; then
+        python -m SimpleHTTPServer "$port"
+    elif command -v php >/dev/null 2>&1; then
+        php -S "0.0.0.0:${port}"
+    else
+        echo "Error: No suitable HTTP server found (python3, python, or php required)"
+        return 1
+    fi
+}
+
 # Installpkg: interactive package installation for Debian/Arch (fzf-based)
 installpkg() { # Debian/Arch only
     if ! command -v fzf >/dev/null 2>&1; then

@@ -143,6 +143,10 @@ else
     alias grep="/usr/bin/grep $GREP_OPTIONS"
 fi
 
+# System aliases
+alias rebootsafe='sudo shutdown -r now'
+alias rebootforce='sudo shutdown -r -n now'
+
 # Git functions (more flexible than aliases)
 gl() {
     git log --oneline --graph --decorate --all --color=always "$@" | less -R

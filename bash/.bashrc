@@ -821,6 +821,34 @@ if [[ $- == *i* ]]; then
             READLINE_POINT=${#READLINE_LINE}
         }
         bind -x '"\C-r": __fzf_history__'
+
+        # Ctrl+t: fuzzy file search (insert selected file at cursor)
+        __fzf_file__() {
+            local output
+            if command -v fd >/dev/null 2>&1; then
+                output=$(fd --type f --hidden --exclude .git | fzf --height 40% --reverse --border --prompt="Files ❯ " --preview 'head -100 {}' --preview-window=right:50%:wrap)
+            else
+                output=$(find . -type f -not -path '*/.git/*' 2>/dev/null | fzf --height 40% --reverse --border --prompt="Files ❯ " --preview 'head -100 {}' --preview-window=right:50%:wrap)
+            fi
+            READLINE_LINE="${READLINE_LINE:0:$READLINE_POINT}$output${READLINE_LINE:$READLINE_POINT}"
+            READLINE_POINT=$((READLINE_POINT + ${#output}))
+        }
+        bind -x '"\C-t": __fzf_file__'
+
+        # Ctrl+g: fuzzy cd into directory
+        __fzf_cd__() {
+            local dir
+            if command -v fd >/dev/null 2>&1; then
+                dir=$(fd --type d --hidden --exclude .git | fzf --height 40% --reverse --border --prompt="Dirs ❯ " --preview 'ls -la {}' --preview-window=right:50%:wrap)
+            else
+                dir=$(find . -type d -not -path '*/.git/*' 2>/dev/null | fzf --height 40% --reverse --border --prompt="Dirs ❯ " --preview 'ls -la {}' --preview-window=right:50%:wrap)
+            fi
+            if [ -n "$dir" ]; then
+                READLINE_LINE="cd $dir"
+                READLINE_POINT=${#READLINE_LINE}
+            fi
+        }
+        bind -x '"\C-g": __fzf_cd__'
     fi
 fi
 

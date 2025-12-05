@@ -122,7 +122,7 @@ alias openports='netstat -nape --inet'
 alias whatismyip="whatsmyip"
 alias whatmyip="whatsmyip"
 alias getip="whatsmyip"
-command -v xclip >/dev/null 2>&1 && alias clip='xclip -selection clipboard'
+command -v xclip >/dev/null 2>&1 && alias copy='xclip -selection clipboard'
 
 # Fun / interactive helpers with dependency checks
 # Ensure prior aliases of these names do not interfere with function definitions

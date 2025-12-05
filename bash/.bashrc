@@ -898,6 +898,22 @@ fi
 # =========================
 # Keybindings and init
 # =========================
+
+# Show custom keybindings
+keybinds() {
+    echo ""
+    echo "┌─────────────────────────────────────────────────────┐"
+    echo "│  Custom Keybindings                                 │"
+    echo "├─────────────────────────────────────────────────────┤"
+    echo "│  Ctrl+f     Zoxide interactive (zi)                 │"
+    echo "│  Ctrl+y     Install package (installpkg)            │"
+    echo "│  Ctrl+r     Fuzzy history search                    │"
+    echo "│  Ctrl+t     Fuzzy file search                       │"
+    echo "│  Ctrl+g     Fuzzy directory search                  │"
+    echo "└─────────────────────────────────────────────────────┘"
+    echo ""
+}
+
 if [[ $- == *i* ]]; then
     bind '"\C-f":"zi\n"'
     bind '"\C-y":"installpkg\n"'

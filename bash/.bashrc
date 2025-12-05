@@ -810,6 +810,18 @@ fi
 if [[ $- == *i* ]]; then
     bind '"\C-f":"zi\n"'
     bind '"\C-y":"installpkg\n"'
+
+    # FZF integration
+    if command -v fzf >/dev/null 2>&1; then
+        # Ctrl+r: fuzzy history search
+        __fzf_history__() {
+            local output
+            output=$(history | sed 's/^ *[0-9]* *//' | tac | awk '!seen[$0]++' | fzf --height 40% --reverse --border --prompt="History ❯ " --query="$READLINE_LINE")
+            READLINE_LINE="$output"
+            READLINE_POINT=${#READLINE_LINE}
+        }
+        bind -x '"\C-r": __fzf_history__'
+    fi
 fi
 
 eval "$(starship init bash)"

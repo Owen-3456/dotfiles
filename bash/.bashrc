@@ -766,9 +766,9 @@ fzfkill() {
     fi
 }
 
-# Ytdl: download YouTube video into ~/Downloads/Videos (mp4)
+# Ytdl: download YouTube video into ~/Videos (mp4)
 ytdl() {
-    local download_dir="$HOME/Downloads/Videos"
+    local download_dir="$HOME/Videos"
     [ -z "$1" ] && {
         echo "Usage: ytdl <youtube-url>"
         return 1

@@ -797,68 +797,11 @@ openremote() {
 }
 
 # =========================
-# Tmux session management
+# Tmux auto-attach
 # =========================
 if [[ $- == *i* ]] && command -v tmux >/dev/null 2>&1 && [ -z "$TMUX" ]; then
-    # Color definitions
-    CYAN='\033[0;36m'
-    GREEN='\033[0;32m'
-    YELLOW='\033[1;33m'
-    BLUE='\033[0;34m'
-    MAGENTA='\033[0;35m'
-    BOLD='\033[1m'
-    RESET='\033[0m'
-
-    tmux_session_count=$(tmux list-sessions 2>/dev/null | wc -l)
-
-    if [ "$tmux_session_count" -eq 0 ]; then
-        # No sessions exist
-        echo -e "${CYAN}╭─────────────────────────────────╮${RESET}"
-        echo -e "${CYAN}│${RESET}  ${BOLD}No tmux sessions found${RESET}      ${CYAN}│${RESET}"
-        echo -e "${CYAN}╰─────────────────────────────────╯${RESET}"
-        echo -ne "${GREEN}❯${RESET} Create a new session? ${BOLD}[Y/n]:${RESET} "
-        read -n 1 -r
-        echo
-        if [[ -z "$REPLY" ]] || [[ $REPLY =~ ^[Yy]$ ]]; then
-            tmux new-session
-        else
-            clear
-        fi
-    elif [ "$tmux_session_count" -eq 1 ]; then
-        # Exactly one session exists
-        session_name=$(tmux list-sessions -F '#{session_name}' 2>/dev/null)
-        echo -e "${CYAN}╭─────────────────────────────────╮${RESET}"
-        echo -e "${CYAN}│${RESET}  ${BOLD}Active tmux session found${RESET}   ${CYAN}│${RESET}"
-        echo -e "${CYAN}╰─────────────────────────────────╯${RESET}"
-        echo -e "  ${MAGENTA}▸${RESET} ${BOLD}${session_name}${RESET}"
-        echo
-        echo -ne "${GREEN}❯${RESET} Attach to session? ${BOLD}[Y/n]:${RESET} "
-        read -n 1 -r
-        echo
-        if [[ -z "$REPLY" ]] || [[ $REPLY =~ ^[Yy]$ ]]; then
-            tmux attach-session -t "$session_name"
-        else
-            clear
-        fi
-    else
-        # Multiple sessions exist
-        echo -e "${CYAN}╭─────────────────────────────────╮${RESET}"
-        echo -e "${CYAN}│${RESET}  ${BOLD}Multiple tmux sessions${RESET}      ${CYAN}│${RESET}"
-        echo -e "${CYAN}╰─────────────────────────────────╯${RESET}"
-        while IFS= read -r session_line; do
-            session_name=$(echo "$session_line" | cut -d: -f1)
-            session_info=$(echo "$session_line" | cut -d: -f2-)
-            echo -e "  ${MAGENTA}▸${RESET} ${BOLD}${session_name}${RESET}${BLUE}:${RESET}${session_info}"
-        done < <(tmux list-sessions -F '#{session_name}:#{session_windows} windows (created #{t:session_created})' 2>/dev/null)
-        echo
-        echo -ne "${GREEN}❯${RESET} Enter session name ${YELLOW}(or press Enter to skip)${RESET}: "
-        read -r session_name
-        if [ -n "$session_name" ]; then
-            tmux attach-session -t "$session_name" 2>/dev/null || echo -e "${YELLOW}⚠${RESET} Session '${session_name}' not found."
-        else
-            clear
-        fi
-    fi
+    # Attach to existing session or create a new one
+    tmux attach-session 2>/dev/null || tmux new-session
 fi
 
 # =========================

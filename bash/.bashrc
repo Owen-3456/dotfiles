@@ -942,7 +942,7 @@ if [[ $- == *i* ]]; then
         }
         bind -x '"\C-t": __fzf_file__'
 
-        # Ctrl+g: fuzzy cd into directory
+        # Ctrl+g: fuzzy directory search (insert selected dir at cursor)
         __fzf_cd__() {
             local dir
             if command -v fd >/dev/null 2>&1; then
@@ -951,8 +951,8 @@ if [[ $- == *i* ]]; then
                 dir=$(find . -type d -not -path '*/.git/*' 2>/dev/null | fzf --height 40% --reverse --border --prompt="Dirs ❯ " --preview 'ls -la {}' --preview-window=right:50%:wrap)
             fi
             if [ -n "$dir" ]; then
-                READLINE_LINE="cd $dir"
-                READLINE_POINT=${#READLINE_LINE}
+                READLINE_LINE="${READLINE_LINE:0:$READLINE_POINT}$dir${READLINE_LINE:$READLINE_POINT}"
+                READLINE_POINT=$((READLINE_POINT + ${#dir}))
             fi
         }
         bind -x '"\C-g": __fzf_cd__'

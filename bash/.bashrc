@@ -136,6 +136,13 @@ command -v fastfetch >/dev/null 2>&1 && alias neofetch='fastfetch'
 alias wget='wget --show-progress --progress=bar:force:noscroll'
 alias cls='clear'
 
+# Ripgrep integration
+if command -v rg &>/dev/null; then
+    alias grep='rg'
+else
+    alias grep="/usr/bin/grep $GREP_OPTIONS"
+fi
+
 # Git functions (more flexible than aliases)
 gl() {
     git log --oneline --graph --decorate --all --color=always "$@" | less -R

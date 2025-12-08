@@ -18,9 +18,10 @@ fi
 # History configuration
 export HISTFILESIZE=10000
 export HISTSIZE=5000
-export HISTTIMEFORMAT="%F %T"
+export HISTTIMEFORMAT="%F %T "
 export HISTCONTROL=erasedups:ignoredups:ignorespace
-PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND; }history -a"
+# Sync history across all sessions: append, clear local, reload from file
+PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND; }history -a; history -c; history -r"
 
 # Interactive-only terminal tweaks
 if [[ $- == *i* ]]; then
@@ -923,7 +924,7 @@ if [[ $- == *i* ]]; then
         # Ctrl+r: fuzzy history search
         __fzf_history__() {
             local output
-            output=$(history | sed 's/^ *[0-9]* *//' | tac | awk '!seen[$0]++' | fzf --height 40% --reverse --border --prompt="History ❯ " --query="$READLINE_LINE")
+            output=$(HISTTIMEFORMAT='' history | sed 's/^ *[0-9]* *//' | tac | awk '!seen[$0]++' | fzf --height 40% --reverse --border --prompt="History ❯ " --query="$READLINE_LINE")
             READLINE_LINE="$output"
             READLINE_POINT=${#READLINE_LINE}
         }

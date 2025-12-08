@@ -911,6 +911,7 @@ keybinds() {
     echo "│  Ctrl+r     Fuzzy history search                    │"
     echo "│  Ctrl+t     Fuzzy file search                       │"
     echo "│  Ctrl+g     Fuzzy directory search                  │"
+    echo "│  Ctrl+x     Fuzzy delete (fzfdel)                   │"
     echo "└─────────────────────────────────────────────────────┘"
     echo ""
 }
@@ -918,6 +919,7 @@ keybinds() {
 if [[ $- == *i* ]]; then
     bind '"\C-f":"zi\n"'
     bind '"\C-y":"installpkg\n"'
+    bind '"\C-x":"fzfdel\n"'
 
     # FZF integration
     if command -v fzf >/dev/null 2>&1; then

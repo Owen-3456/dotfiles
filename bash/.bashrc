@@ -966,6 +966,51 @@ if [[ $- == *i* ]]; then
     fi
 fi
 
+# Fuzzy delete: select multiple files/dirs to trash
+fzfdel() {
+    if ! command -v fzf >/dev/null 2>&1; then
+        echo "Error: fzf is required but not installed."
+        return 1
+    fi
+    if ! command -v trash >/dev/null 2>&1; then
+        echo "Error: trash-cli is required but not installed."
+        return 1
+    fi
+
+    local selected
+    if command -v fd >/dev/null 2>&1; then
+        selected=$(fd --hidden --exclude .git --exclude .Trash --exclude .local/share/Trash |
+            fzf --multi --height 60% --reverse --border --prompt="Delete ❯ " \
+                --header="TAB to select multiple, ENTER to confirm" \
+                --preview '[[ -d {} ]] && ls -la {} || head -100 {}' \
+                --preview-window=right:50%:wrap)
+    else
+        selected=$(find . -not -path '*/.git/*' -not -path '*/.Trash/*' -not -path '*/.local/share/Trash/*' 2>/dev/null |
+            fzf --multi --height 60% --reverse --border --prompt="Delete ❯ " \
+                --header="TAB to select multiple, ENTER to confirm" \
+                --preview '[[ -d {} ]] && ls -la {} || head -100 {}' \
+                --preview-window=right:50%:wrap)
+    fi
+
+    if [ -n "$selected" ]; then
+        local count=$(echo "$selected" | wc -l)
+        echo "Selected $count item(s) for deletion:"
+        echo "$selected"
+        echo ""
+        read -p "Move these to trash? (y/N): " confirm
+        if [[ $confirm =~ ^[Yy]$ ]]; then
+            echo "$selected" | while IFS= read -r file; do
+                trash -v "$file"
+            done
+            echo "Done. Use 'trash-list' to view or 'trash-restore' to recover."
+        else
+            echo "Cancelled."
+        fi
+    else
+        echo "No files selected."
+    fi
+}
+
 eval "$(starship init bash)"
 if command -v zoxide >/dev/null 2>&1; then
     eval "$(zoxide init bash)"

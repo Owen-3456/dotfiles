@@ -556,24 +556,83 @@ updatepkg() { # Debian/Arch only
     fi
 }
 
-# Updatesys: update/upgrade system packages (Debian/Arch) with optional cleanup
+# Updatesys: update/upgrade system packages with optional cleanup
+# Supports: Debian/Ubuntu, Arch, Fedora, openSUSE, Alpine, Void, Solus
 updatesys() {
     echo "Starting system upgrade..."
     local packages_updated=0
     local start_time=$(date +%s)
+    local CYAN='\033[0;36m'
+    local YELLOW='\033[1;33m'
+    local RED='\033[0;31m'
+    local GREEN='\033[0;32m'
+    local RC='\033[0m' # Reset Color
+
+    # Helper function to optimize mirrors
+    _optimize_mirrors() {
+        case "$1" in
+        arch)
+            if command -v rate-mirrors >/dev/null 2>&1; then
+                echo -e "${YELLOW}Optimizing mirrors using rate-mirrors...${RC}"
+                if [ -s "/etc/pacman.d/mirrorlist" ]; then
+                    sudo cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
+                fi
+                if ! sudo rate-mirrors --top-mirrors-number-to-retest=5 --disable-comments --save /etc/pacman.d/mirrorlist --allow-root arch >/dev/null 2>&1 || [ ! -s "/etc/pacman.d/mirrorlist" ]; then
+                    echo -e "${RED}Rate-mirrors failed, restoring backup.${RC}"
+                    sudo cp /etc/pacman.d/mirrorlist.bak /etc/pacman.d/mirrorlist
+                else
+                    echo -e "${GREEN}Mirror list optimized!${RC}"
+                fi
+            fi
+            ;;
+        debian)
+            if command -v nala >/dev/null 2>&1; then
+                echo -e "${YELLOW}Optimizing mirrors using nala fetch...${RC}"
+                # Backup existing nala sources
+                if [ -f "/etc/apt/sources.list.d/nala-sources.list" ]; then
+                    sudo cp /etc/apt/sources.list.d/nala-sources.list /etc/apt/sources.list.d/nala-sources.list.bak
+                fi
+                if ! sudo nala fetch --auto -y 2>/dev/null; then
+                    echo -e "${RED}Nala fetch failed, restoring backup if available.${RC}"
+                    if [ -f "/etc/apt/sources.list.d/nala-sources.list.bak" ]; then
+                        sudo cp /etc/apt/sources.list.d/nala-sources.list.bak /etc/apt/sources.list.d/nala-sources.list
+                    fi
+                else
+                    echo -e "${GREEN}Mirror list optimized!${RC}"
+                fi
+            fi
+            ;;
+        esac
+    }
+
+    # Helper function to update flatpaks
+    _update_flatpaks() {
+        if command -v flatpak >/dev/null 2>&1; then
+            echo ""
+            echo -e "${YELLOW}Updating flatpak packages...${RC}"
+            flatpak update -y
+        fi
+    }
 
     if [ -f /etc/debian_version ]; then
         echo "Debian-based system detected"
 
-        # Update package lists first
+        # Use nala if available, otherwise apt
+        local PACKAGER="apt"
         if command -v nala >/dev/null 2>&1; then
-            echo "Using nala for package management"
+            PACKAGER="nala"
+            echo -e "${CYAN}Using nala for package management${RC}"
+        else
+            echo "Using apt for package management"
+        fi
+
+        # Update package lists
+        if [ "$PACKAGER" = "nala" ]; then
             sudo nala update || {
                 echo "Failed to update package list"
                 return 1
             }
         else
-            echo "Using apt for package management"
             local apt_opts="-o Acquire::Queue-Mode=host -o APT::Acquire::Retries=3"
             if command -v aria2c >/dev/null 2>&1; then
                 apt_opts="$apt_opts -o Acquire::http::Dl-Limit=0 -o Acquire::https::Dl-Limit=0"
@@ -591,21 +650,14 @@ updatesys() {
 
         if [ "$packages_updated" -eq 0 ]; then
             echo "No updates available. System is already up to date."
+            _update_flatpaks
             return 0
         fi
 
-        echo ""
-        echo "Available updates ($packages_updated packages):"
-        echo "$upgradable_list" | cut -d/ -f1 | column
-        echo ""
-        read -p "Do you want to upgrade all these packages? (y/N): " confirm
-        if [[ ! $confirm =~ ^[Yy]$ ]]; then
-            echo "Update cancelled."
-            return 0
-        fi
+        echo "Upgrading $packages_updated packages..."
 
         # Perform upgrade
-        if command -v nala >/dev/null 2>&1; then
+        if [ "$PACKAGER" = "nala" ]; then
             sudo nala upgrade -y || {
                 echo "Failed to upgrade packages"
                 return 1
@@ -621,169 +673,180 @@ updatesys() {
             sudo apt autoclean
         fi
 
+        # Update flatpaks
+        _update_flatpaks
+
         # Check for reboot requirement
         if [ -f /var/run/reboot-required ]; then
             echo ""
-            echo "WARNING: System reboot is required to complete the upgrade."
-            read -p "Do you want to reboot now? (y/N): " reboot_confirm
-            if [[ $reboot_confirm =~ ^[Yy]$ ]]; then
-                echo "Rebooting system..."
-                sudo reboot
-            else
-                echo "Please remember to reboot your system later."
-            fi
+            echo -e "${YELLOW}WARNING: System reboot is required to complete the upgrade.${RC}"
         fi
 
     elif [ -f /etc/arch-release ]; then
         echo "Arch-based system detected"
 
-        if command -v yay >/dev/null 2>&1; then
-            echo "Checking for updates (pacman + AUR)..."
-            # Sync database
-            yay -Sy >/dev/null 2>&1 || {
-                echo "Failed to update package database"
-                return 1
-            }
-
-            # Get list of upgradable packages
-            local upgradable_list=$(yay -Qu 2>/dev/null)
-            packages_updated=$(echo "$upgradable_list" | grep -c '^' 2>/dev/null || echo 0)
-
-            if [ "$packages_updated" -eq 0 ]; then
-                echo "No updates available. System is already up to date."
-                return 0
-            fi
-
-            echo ""
-            echo "Available updates ($packages_updated packages):"
-            echo "$upgradable_list" | awk '{print $1}' | column
-            echo ""
-            read -p "Do you want to upgrade all these packages? (y/N): " confirm
-            if [[ ! $confirm =~ ^[Yy]$ ]]; then
-                echo "Update cancelled."
-                return 0
-            fi
-
-            # Enable parallel downloads
-            local yay_opts="--noconfirm --overwrite='*'"
-            local failed_packages=()
-            if grep -q "^ParallelDownloads" /etc/pacman.conf 2>/dev/null; then
-                echo "Parallel downloads enabled"
-            else
-                echo "Note: Enable ParallelDownloads in /etc/pacman.conf for faster updates"
-            fi
-
-            # Try to update all packages first
-            echo "Attempting to update all packages..."
-            if ! yay -Su $yay_opts 2>&1; then
-                echo ""
-                echo "Batch update failed. Attempting individual package updates..."
-                echo ""
-
-                # Get list of packages to update
-                local pkg_list=$(echo "$upgradable_list" | awk '{print $1}')
-                local total=$(echo "$pkg_list" | wc -l)
-                local current=0
-
-                # Update each package individually
-                while IFS= read -r pkg; do
-                    ((current++))
-                    echo "[$current/$total] Updating $pkg..."
-                    if ! yay -S --noconfirm --overwrite='*' "$pkg" 2>&1 | tail -20; then
-                        echo "  ✗ Failed to update $pkg"
-                        failed_packages+=("$pkg")
-                    else
-                        echo "  ✓ Updated $pkg"
-                    fi
-                    echo ""
-                done <<<"$pkg_list"
-            fi
-
-            echo "Cleaning package cache..."
-            yay -Sc --noconfirm 2>/dev/null || true
-        else
-            echo "Checking for updates..."
-            # Sync database
-            sudo pacman -Sy >/dev/null 2>&1 || {
-                echo "Failed to update package database"
-                return 1
-            }
-
-            # Get list of upgradable packages
-            local upgradable_list=$(pacman -Qu 2>/dev/null)
-            packages_updated=$(echo "$upgradable_list" | grep -c '^' 2>/dev/null || echo 0)
-
-            if [ "$packages_updated" -eq 0 ]; then
-                echo "No updates available. System is already up to date."
-                return 0
-            fi
-
-            echo ""
-            echo "Available updates ($packages_updated packages):"
-            echo "$upgradable_list" | awk '{print $1}' | column
-            echo ""
-            read -p "Do you want to upgrade all these packages? (y/N): " confirm
-            if [[ ! $confirm =~ ^[Yy]$ ]]; then
-                echo "Update cancelled."
-                return 0
-            fi
-
-            # Enable parallel downloads if not already set
-            local failed_packages=()
-            if grep -q "^ParallelDownloads" /etc/pacman.conf 2>/dev/null; then
-                echo "Parallel downloads enabled"
-            else
-                echo "Note: Enable ParallelDownloads in /etc/pacman.conf for faster updates"
-            fi
-
-            # Try to update all packages first
-            echo "Attempting to update all packages..."
-            if ! sudo pacman -Su --noconfirm --overwrite='*' 2>&1; then
-                echo ""
-                echo "Batch update failed. Attempting individual package updates..."
-                echo ""
-
-                # Get list of packages to update
-                local pkg_list=$(echo "$upgradable_list" | awk '{print $1}')
-                local total=$(echo "$pkg_list" | wc -l)
-                local current=0
-
-                # Update each package individually
-                while IFS= read -r pkg; do
-                    ((current++))
-                    echo "[$current/$total] Updating $pkg..."
-                    if ! sudo pacman -S --noconfirm --overwrite='*' "$pkg" 2>&1 | tail -20; then
-                        echo "  ✗ Failed to update $pkg"
-                        failed_packages+=("$pkg")
-                    else
-                        echo "  ✓ Updated $pkg"
-                    fi
-                    echo ""
-                done <<<"$pkg_list"
-            fi
-
-            echo "Cleaning package cache (keeping installed versions)..."
-            yes | sudo pacman -Sc >/dev/null 2>&1 || true
+        if ! command -v yay >/dev/null 2>&1; then
+            echo -e "${RED}Error: yay is required but not installed.${RC}"
+            echo "Install yay first: https://github.com/Jguer/yay"
+            return 1
         fi
 
-        # Check for orphaned packages
+        echo -e "${CYAN}Using yay for package management (pacman + AUR)${RC}"
+
+        # Update keyring first
+        echo "Updating archlinux-keyring..."
+        sudo pacman -Sy --noconfirm --needed archlinux-keyring || {
+            echo "Failed to update keyring"
+            return 1
+        }
+
+        # Get list of upgradable packages
+        local upgradable_list=$(yay -Qu 2>/dev/null)
+        packages_updated=$(echo "$upgradable_list" | grep -c '^' 2>/dev/null || echo 0)
+
+        if [ "$packages_updated" -eq 0 ]; then
+            echo "No updates available. System is already up to date."
+            _update_flatpaks
+            return 0
+        fi
+
+        echo "Upgrading $packages_updated packages..."
+
+        # Check parallel downloads
+        if ! grep -q "^ParallelDownloads" /etc/pacman.conf 2>/dev/null; then
+            echo "Note: Enable ParallelDownloads in /etc/pacman.conf for faster updates"
+        fi
+
+        # Perform upgrade
+        local failed_packages=()
+        echo "Upgrading all packages..."
+        yay -Su --noconfirm || {
+            echo -e "${YELLOW}Some packages may have failed${RC}"
+        }
+
+        # Cleanup
+        echo "Cleaning package cache..."
+        yay -Sc --noconfirm 2>/dev/null || true
+        paccache -rk 2 2>/dev/null || true
+
+        # Remove orphaned packages
         local orphans=$(pacman -Qtdq 2>/dev/null)
         if [ -n "$orphans" ]; then
-            echo ""
-            echo "Found orphaned packages:"
-            echo "$orphans"
-            read -p "Do you want to remove these orphaned packages? (y/N): " remove_orphans
-            if [[ $remove_orphans =~ ^[Yy]$ ]]; then
-                echo "$orphans" | sudo pacman -Rns --noconfirm - 2>/dev/null && echo "Orphaned packages removed" || echo "Some packages could not be removed"
-            fi
+            echo "Removing orphaned packages..."
+            echo "$orphans" | sudo pacman -Rns --noconfirm - 2>/dev/null && echo "Orphaned packages removed" || echo "Some packages could not be removed"
         fi
 
-        # Clear cache directories
-        echo "Cleaning additional caches..."
-        paccache -rk 2 2>/dev/null || true # Keep only 2 most recent versions if paccache is available
+        # Update flatpaks
+        _update_flatpaks
+
+    elif [ -f /etc/fedora-release ] || [ -f /etc/redhat-release ]; then
+        echo "Fedora/RHEL-based system detected"
+        echo -e "${CYAN}Using dnf for package management${RC}"
+
+        echo "Updating system packages..."
+        sudo dnf update -y || {
+            echo "Failed to update packages"
+            return 1
+        }
+
+        # Cleanup
+        echo "Cleaning package cache..."
+        sudo dnf autoremove -y
+        sudo dnf clean all
+
+        # Update flatpaks
+        _update_flatpaks
+
+    elif [ -f /etc/SuSE-release ] || [ -f /etc/SUSE-brand ] || grep -qi "suse\|opensuse" /etc/os-release 2>/dev/null; then
+        echo "openSUSE-based system detected"
+        echo -e "${CYAN}Using zypper for package management${RC}"
+
+        echo "Refreshing repositories..."
+        sudo zypper ref || {
+            echo "Failed to refresh repositories"
+            return 1
+        }
+
+        echo "Performing distribution upgrade..."
+        sudo zypper --non-interactive dup || {
+            echo "Failed to upgrade packages"
+            return 1
+        }
+
+        # Cleanup
+        echo "Cleaning package cache..."
+        sudo zypper clean
+
+        # Update flatpaks
+        _update_flatpaks
+
+    elif [ -f /etc/alpine-release ]; then
+        echo "Alpine Linux detected"
+        echo -e "${CYAN}Using apk for package management${RC}"
+
+        echo "Updating package index..."
+        sudo apk update || {
+            echo "Failed to update package index"
+            return 1
+        }
+
+        echo "Upgrading packages..."
+        sudo apk upgrade || {
+            echo "Failed to upgrade packages"
+            return 1
+        }
+
+        # Update flatpaks
+        _update_flatpaks
+
+    elif [ -d /run/runit ] || command -v xbps-install >/dev/null 2>&1; then
+        echo "Void Linux detected"
+        echo -e "${CYAN}Using xbps for package management${RC}"
+
+        echo "Syncing repositories..."
+        sudo xbps-install -S || {
+            echo "Failed to sync repositories"
+            return 1
+        }
+
+        echo "Upgrading packages..."
+        sudo xbps-install -yu || {
+            echo "Failed to upgrade packages"
+            return 1
+        }
+
+        # Update flatpaks
+        _update_flatpaks
+
+    elif command -v eopkg >/dev/null 2>&1; then
+        echo "Solus detected"
+        echo -e "${CYAN}Using eopkg for package management${RC}"
+
+        echo "Updating repository..."
+        sudo eopkg -y update-repo || {
+            echo "Failed to update repository"
+            return 1
+        }
+
+        echo "Upgrading packages..."
+        sudo eopkg -y upgrade || {
+            echo "Failed to upgrade packages"
+            return 1
+        }
+
+        # Update flatpaks
+        _update_flatpaks
 
     else
-        echo "Error: Unknown distribution. This function supports Debian/Ubuntu and Arch-based systems only."
+        echo -e "${RED}Error: Unknown distribution.${RC}"
+        echo "This function supports:"
+        echo "  - Debian/Ubuntu (apt/nala)"
+        echo "  - Arch Linux (pacman/yay/paru)"
+        echo "  - Fedora/RHEL (dnf)"
+        echo "  - openSUSE (zypper)"
+        echo "  - Alpine (apk)"
+        echo "  - Void Linux (xbps)"
+        echo "  - Solus (eopkg)"
         return 1
     fi
 
@@ -793,14 +856,16 @@ updatesys() {
     local minutes=$((duration / 60))
     local seconds=$((duration % 60))
 
-    # Success summary (runs for both distros)
+    # Success summary
     echo ""
-    echo "===================================="
-    echo "System upgrade completed successfully!"
-    echo "===================================="
-    echo "Packages updated: $packages_updated"
+    echo -e "${GREEN}====================================${RC}"
+    echo -e "${GREEN}System upgrade completed successfully!${RC}"
+    echo -e "${GREEN}====================================${RC}"
+    if [ "$packages_updated" -gt 0 ]; then
+        echo "Packages processed: $packages_updated"
+    fi
     if [ ${#failed_packages[@]} -gt 0 ]; then
-        echo "Failed packages:"
+        echo -e "${RED}Failed packages (${#failed_packages[@]}):${RC}"
         for pkg in "${failed_packages[@]}"; do
             echo "  - $pkg"
         done
@@ -810,25 +875,28 @@ updatesys() {
     echo "Kernel: $(uname -r)"
     echo "Uptime: $(uptime -p)"
 
-    # Show remaining updates
+    # Show remaining updates based on detected package manager
+    local updates=0
     if [ -f /etc/debian_version ]; then
-        local updates=$(apt list --upgradable 2>/dev/null | grep -v "^Listing" | wc -l)
-        if [ "$updates" -gt 0 ]; then
-            echo "Pending updates: $updates"
-        else
-            echo "System is up to date"
-        fi
+        updates=$(apt list --upgradable 2>/dev/null | grep -v "^Listing" | wc -l)
     elif [ -f /etc/arch-release ]; then
-        if command -v yay >/dev/null 2>&1; then
-            local updates=$(yay -Qu 2>/dev/null | wc -l)
-        else
-            local updates=$(pacman -Qu 2>/dev/null | wc -l)
-        fi
-        if [ "$updates" -gt 0 ]; then
-            echo "Pending updates: $updates"
-        else
-            echo "System is up to date"
-        fi
+        updates=$(yay -Qu 2>/dev/null | wc -l)
+    elif command -v dnf >/dev/null 2>&1; then
+        updates=$(dnf check-update 2>/dev/null | grep -c '^[a-zA-Z]' || echo 0)
+    elif command -v zypper >/dev/null 2>&1; then
+        updates=$(zypper list-updates 2>/dev/null | grep -c '^v' || echo 0)
+    elif command -v apk >/dev/null 2>&1; then
+        updates=$(apk version -l '<' 2>/dev/null | wc -l)
+    elif command -v xbps-install >/dev/null 2>&1; then
+        updates=$(xbps-install -nu 2>/dev/null | wc -l)
+    elif command -v eopkg >/dev/null 2>&1; then
+        updates=$(eopkg lu 2>/dev/null | grep -c '^' || echo 0)
+    fi
+
+    if [ "$updates" -gt 0 ]; then
+        echo -e "${YELLOW}Pending updates: $updates${RC}"
+    else
+        echo -e "${GREEN}System is up to date${RC}"
     fi
 }
 

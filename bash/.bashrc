@@ -900,6 +900,101 @@ updatesys() {
     fi
 }
 
+# Cleansys: perform system cleanup (cache, logs, orphans, trash)
+# Supports: Debian/Ubuntu (nala/apt), Arch (yay/pacman)
+cleansys() {
+    echo "Starting system cleanup..."
+    local start_time=$(date +%s)
+    local YELLOW='\033[1;33m'
+    local RED='\033[0;31m'
+    local GREEN='\033[0;32m'
+    local RC='\033[0m'
+
+    # Package manager cleanup
+    echo -e "${YELLOW}Cleaning package manager cache...${RC}"
+    if [ -f /etc/debian_version ]; then
+        if command -v nala >/dev/null 2>&1; then
+            sudo nala clean
+            sudo nala autoremove -y
+        else
+            sudo apt-get clean
+            sudo apt-get autoremove -y
+        fi
+        echo "APT cache size: $(sudo du -sh /var/cache/apt 2>/dev/null | cut -f1)"
+
+    elif [ -f /etc/arch-release ]; then
+        if command -v yay >/dev/null 2>&1; then
+            yay -Sc --noconfirm
+        else
+            sudo pacman -Sc --noconfirm
+        fi
+        # Remove orphaned packages
+        local orphans=$(pacman -Qtdq 2>/dev/null)
+        if [ -n "$orphans" ]; then
+            echo "Removing orphaned packages..."
+            echo "$orphans" | sudo pacman -Rns --noconfirm - 2>/dev/null || true
+        fi
+        paccache -rk 2 2>/dev/null || true
+
+    else
+        echo -e "${RED}Unsupported distribution. This function supports Debian/Ubuntu and Arch only.${RC}"
+        return 1
+    fi
+
+    # Common cleanup: temp files
+    echo -e "${YELLOW}Cleaning temporary files...${RC}"
+    if [ -d /var/tmp ]; then
+        sudo find /var/tmp -type f -atime +5 -delete 2>/dev/null || true
+    fi
+    if [ -d /tmp ]; then
+        sudo find /tmp -type f -atime +5 -delete 2>/dev/null || true
+    fi
+
+    # Truncate old log files
+    echo -e "${YELLOW}Truncating old log files...${RC}"
+    if [ -d /var/log ]; then
+        sudo find /var/log -type f -name "*.log" -exec truncate -s 0 {} \; 2>/dev/null || true
+    fi
+
+    # Clean journald logs (systemd systems)
+    if command -v journalctl >/dev/null 2>&1; then
+        echo -e "${YELLOW}Vacuuming journald logs (keeping 3 days)...${RC}"
+        sudo journalctl --vacuum-time=3d 2>/dev/null || true
+    fi
+
+    # Clean user cache and trash
+    echo -e "${YELLOW}Cleaning user cache (files older than 5 days)...${RC}"
+    if [ -d "$HOME/.cache" ]; then
+        find "$HOME/.cache/" -type f -atime +5 -delete 2>/dev/null || true
+    fi
+
+    echo -e "${YELLOW}Emptying trash...${RC}"
+    if [ -d "$HOME/.local/share/Trash" ]; then
+        find "$HOME/.local/share/Trash" -mindepth 1 -delete 2>/dev/null || true
+    fi
+
+    # Clean flatpak unused runtimes
+    if command -v flatpak >/dev/null 2>&1; then
+        echo -e "${YELLOW}Removing unused flatpak runtimes...${RC}"
+        flatpak uninstall --unused -y 2>/dev/null || true
+    fi
+
+    # Calculate duration
+    local end_time=$(date +%s)
+    local duration=$((end_time - start_time))
+
+    echo ""
+    echo -e "${GREEN}====================================${RC}"
+    echo -e "${GREEN}System cleanup completed!${RC}"
+    echo -e "${GREEN}====================================${RC}"
+    echo "Time taken: ${duration}s"
+
+    # Show disk usage
+    echo ""
+    echo "Disk usage:"
+    df -h / | tail -1 | awk '{print "  Root: " $3 " used / " $2 " total (" $5 " used)"}'
+}
+
 # Fzfkill: interactively search and kill processes with fzf
 fzfkill() {
     if ! command -v fzf >/dev/null 2>&1; then

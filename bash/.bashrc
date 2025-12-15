@@ -512,7 +512,7 @@ updatepkg() { # Debian/Arch only
 
         if command -v yay >/dev/null 2>&1; then
             # Update package database first (includes AUR)
-            yay -Sy >/dev/null 2>&1 || {
+            sudo pacman -Sy >/dev/null 2>&1 || {
                 echo "Failed to update package database"
                 return 1
             }

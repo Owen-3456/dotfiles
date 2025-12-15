@@ -562,6 +562,7 @@ updatesys() {
     echo "Starting system upgrade..."
     local packages_updated=0
     local start_time=$(date +%s)
+    local apt_opts=""
     local CYAN='\033[0;36m'
     local YELLOW='\033[1;33m'
     local RED='\033[0;31m'
@@ -633,7 +634,7 @@ updatesys() {
                 return 1
             }
         else
-            local apt_opts="-o Acquire::Queue-Mode=host -o APT::Acquire::Retries=3"
+            apt_opts="-o Acquire::Queue-Mode=host -o APT::Acquire::Retries=3"
             if command -v aria2c >/dev/null 2>&1; then
                 apt_opts="$apt_opts -o Acquire::http::Dl-Limit=0 -o Acquire::https::Dl-Limit=0"
                 echo "Using aria2c for faster downloads"
@@ -717,12 +718,22 @@ updatesys() {
             echo "Note: Enable ParallelDownloads in /etc/pacman.conf for faster updates"
         fi
 
-        # Perform upgrade
-        local failed_packages=()
-        echo "Upgrading all packages..."
-        yay -Su --noconfirm || {
-            echo -e "${YELLOW}Some packages may have failed${RC}"
+        # Perform upgrade - first update official repos, then AUR
+        echo "Upgrading official repository packages..."
+        sudo pacman -Su --noconfirm || {
+            echo -e "${RED}Failed to upgrade official packages${RC}"
+            return 1
         }
+
+        # Now handle AUR packages separately so failures don't block system updates
+        local aur_updates=$(yay -Qua 2>/dev/null)
+        if [ -n "$aur_updates" ]; then
+            echo ""
+            echo "Upgrading AUR packages..."
+            yay -Sua --noconfirm || {
+                echo -e "${YELLOW}Some AUR packages may have failed to update${RC}"
+            }
+        fi
 
         # Cleanup
         echo "Cleaning package cache..."

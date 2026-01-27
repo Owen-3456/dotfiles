@@ -495,15 +495,25 @@ updatepkg() { # Debian/Arch only
             return 0
         fi
 
-        local selected=$(echo "$upgradable" | fzf --multi --header="Select packages to update (TAB for multi-select, Debian)" \
+        local selected
+        selected=$(echo "$upgradable" | fzf --multi --header="Select packages to update (TAB for multi-select, Debian)" \
             --preview 'apt show {1} 2>/dev/null | head -40' \
             --preview-window=right:60%:wrap)
 
         if [ -n "$selected" ]; then
+            # Convert newline-separated list to space-separated for apt/nala
+            local pkg_list=$(echo "$selected" | tr '\n' ' ')
+            echo "Installing: $pkg_list"
             if command -v nala >/dev/null 2>&1; then
-                echo "$selected" | xargs -r sudo nala install -y
+                if ! sudo nala install -y $pkg_list; then
+                    echo "Some packages failed to install"
+                    return 1
+                fi
             else
-                echo "$selected" | xargs -r sudo apt install -y
+                if ! sudo apt install -y $pkg_list; then
+                    echo "Some packages failed to install"
+                    return 1
+                fi
             fi
         fi
 
@@ -524,11 +534,20 @@ updatepkg() { # Debian/Arch only
                 return 0
             fi
 
-            local selected=$(echo "$upgradable" | fzf --multi --header="Select packages to update (TAB for multi-select, Arch + AUR)" \
+            local selected
+            selected=$(echo "$upgradable" | fzf --multi --header="Select packages to update (TAB for multi-select, Arch + AUR)" \
                 --preview 'yay -Si {1} 2>/dev/null | head -40' \
                 --preview-window=right:60%:wrap)
 
-            [ -n "$selected" ] && echo "$selected" | xargs -r yay -S --noconfirm
+            if [ -n "$selected" ]; then
+                # Convert newline-separated list to space-separated for pacman/yay
+                local pkg_list=$(echo "$selected" | tr '\n' ' ')
+                echo "Updating: $pkg_list"
+                if ! yay -S --noconfirm $pkg_list; then
+                    echo "Some packages failed to update"
+                    return 1
+                fi
+            fi
         else
             # Update package database first
             sudo pacman -Sy >/dev/null 2>&1 || {
@@ -543,11 +562,20 @@ updatepkg() { # Debian/Arch only
                 return 0
             fi
 
-            local selected=$(echo "$upgradable" | fzf --multi --header="Select packages to update (TAB for multi-select, Arch)" \
+            local selected
+            selected=$(echo "$upgradable" | fzf --multi --header="Select packages to update (TAB for multi-select, Arch)" \
                 --preview 'pacman -Si {1} 2>/dev/null | head -40' \
                 --preview-window=right:60%:wrap)
 
-            [ -n "$selected" ] && echo "$selected" | xargs -r sudo pacman -S --noconfirm
+            if [ -n "$selected" ]; then
+                # Convert newline-separated list to space-separated for pacman
+                local pkg_list=$(echo "$selected" | tr '\n' ' ')
+                echo "Updating: $pkg_list"
+                if ! sudo pacman -S --noconfirm $pkg_list; then
+                    echo "Some packages failed to update"
+                    return 1
+                fi
+            fi
         fi
 
     else
@@ -726,13 +754,27 @@ updatesys() {
         }
 
         # Now handle AUR packages separately so failures don't block system updates
-        local aur_updates=$(yay -Qua 2>/dev/null)
+        local aur_updates
+        aur_updates=$(yay -Qua 2>/dev/null)
         if [ -n "$aur_updates" ]; then
+            # Clean stale yay build directories for listed AUR packages to avoid
+            # git 'unborn branch' / PKGBUILD download errors caused by dirty cache
+            local aur_list
+            aur_list=$(echo "$aur_updates" | awk '{print $1}')
+            for pkg in $aur_list; do
+                # Some packages may include repo suffixes; normalize directory name
+                local cache_dir="$HOME/.cache/yay/$pkg"
+                if [ -d "$cache_dir" ]; then
+                    echo "Cleaning yay cache for $pkg"
+                    rm -rf "$cache_dir" || true
+                fi
+            done
+
             echo ""
             echo "Upgrading AUR packages..."
-            yay -Sua --noconfirm || {
+            if ! yay -Sua --noconfirm; then
                 echo -e "${YELLOW}Some AUR packages may have failed to update${RC}"
-            }
+            fi
         fi
 
         # Cleanup
@@ -1034,9 +1076,25 @@ fzfkill() {
 
 # Ytdl: download YouTube video into ~/Videos (mp4)
 ytdl() {
-    local download_dir="$HOME/Videos"
-    [ -z "$1" ] && {
-        echo "Usage: ytdl <youtube-url>"
+    local default_dir="$HOME/Videos"
+    local url quality download_dir height format
+
+    # Prompt for URL
+    read -e -p "YouTube URL: " url
+    if [ -z "$url" ]; then
+        echo "No URL provided. Aborting."
+        return 1
+    fi
+
+    # Prompt for quality (default 1080p)
+    read -e -p "Quality (default 1080p): " quality
+    quality=${quality:-1080p}
+
+    # Prompt for output directory (default ~/Videos)
+    read -e -p "Output directory (default $default_dir): " download_dir
+    download_dir=${download_dir:-$default_dir}
+    mkdir -p "$download_dir" || {
+        echo "Failed to create $download_dir"
         return 1
     }
 
@@ -1045,13 +1103,21 @@ ytdl() {
         return 1
     fi
 
-    [ ! -d "$download_dir" ] && mkdir -p "$download_dir"
     (
         builtin cd "$download_dir" || return
-        if command -v aria2c >/dev/null 2>&1; then
-            yt-dlp -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' --merge-output-format mp4 --external-downloader aria2c -o '%(title)s-%(id)s.%(ext)s' "$1"
+
+        # Build a simple format string based on requested resolution
+        height=$(echo "$quality" | sed 's/[^0-9]//g')
+        if [ -n "$height" ]; then
+            format="bestvideo[height<=$height]+bestaudio[ext=m4a]/best"
         else
-            yt-dlp -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' --merge-output-format mp4 -o '%(title)s-%(id)s.%(ext)s' "$1"
+            format="bestvideo+bestaudio/best"
+        fi
+
+        if command -v aria2c >/dev/null 2>&1; then
+            yt-dlp -f "$format" --merge-output-format mp4 --external-downloader aria2c -o '%(title)s-%(id)s.%(ext)s' "$url"
+        else
+            yt-dlp -f "$format" --merge-output-format mp4 -o '%(title)s-%(id)s.%(ext)s' "$url"
         fi
     )
 }

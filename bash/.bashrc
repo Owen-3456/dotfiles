@@ -1128,6 +1128,11 @@ openremote() {
     xdg-open "$url" || echo "No remote found"
 }
 
+# Weather: get weather for a city (default: auto-detect location)
+weather() {
+    curl -s "wttr.in/${1:-}"
+}
+
 # =========================
 # Tmux auto-attach
 # =========================

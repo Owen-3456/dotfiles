@@ -663,10 +663,6 @@ updatesys() {
             }
         else
             apt_opts="-o Acquire::Queue-Mode=host -o APT::Acquire::Retries=3"
-            if command -v aria2c >/dev/null 2>&1; then
-                apt_opts="$apt_opts -o Acquire::http::Dl-Limit=0 -o Acquire::https::Dl-Limit=0"
-                echo "Using aria2c for faster downloads"
-            fi
             sudo apt $apt_opts update || {
                 echo "Failed to update package list"
                 return 1

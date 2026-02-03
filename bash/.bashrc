@@ -11,6 +11,7 @@ if [ -f /etc/bashrc ]; then . /etc/bashrc; fi
 if [[ $- == *i* ]]; then
     shopt -s checkwinsize
     shopt -s cdspell
+    shopt -s dirspell
     shopt -s histappend
     shopt -s globstar
 fi

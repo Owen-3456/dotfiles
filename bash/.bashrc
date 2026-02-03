@@ -1134,14 +1134,6 @@ weather() {
 }
 
 # =========================
-# Tmux auto-attach
-# =========================
-if [[ $- == *i* ]] && command -v tmux >/dev/null 2>&1 && [ -z "$TMUX" ]; then
-    # Attach to existing session or create a new one
-    tmux attach-session 2>/dev/null || tmux new-session
-fi
-
-# =========================
 # Keybindings and init
 # =========================
 

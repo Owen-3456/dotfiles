@@ -1139,17 +1139,22 @@ weather() {
 
 # Show custom keybindings
 keybinds() {
+    local CYAN='\033[0;36m'
+    local YELLOW='\033[1;33m'
+    local GREEN='\033[0;32m'
+    local RC='\033[0m'
+
     echo ""
-    echo "┌─────────────────────────────────────────────────────┐"
-    echo "│  Custom Keybindings                                 │"
-    echo "├─────────────────────────────────────────────────────┤"
-    echo "│  Ctrl+f     Zoxide interactive (zi)                 │"
-    echo "│  Ctrl+y     Install package (installpkg)            │"
-    echo "│  Ctrl+r     Fuzzy history search                    │"
-    echo "│  Ctrl+t     Fuzzy file search                       │"
-    echo "│  Ctrl+g     Fuzzy directory search                  │"
-    echo "│  Ctrl+x     Fuzzy delete (fzfdel)                   │"
-    echo "└─────────────────────────────────────────────────────┘"
+    echo -e "${CYAN}┌─────────────────────────────────────────────────────┐${RC}"
+    echo -e "${CYAN}│${RC}${YELLOW}  Custom Keybindings                                 ${RC}${CYAN}│${RC}"
+    echo -e "${CYAN}├─────────────────────────────────────────────────────┤${RC}"
+    echo -e "${CYAN}│${RC}${GREEN}  Ctrl+f     Zoxide interactive (zi)                 ${RC}${CYAN}│${RC}"
+    echo -e "${CYAN}│${RC}${GREEN}  Ctrl+y     Install package (installpkg)            ${RC}${CYAN}│${RC}"
+    echo -e "${CYAN}│${RC}${GREEN}  Ctrl+r     Fuzzy history search                    ${RC}${CYAN}│${RC}"
+    echo -e "${CYAN}│${RC}${GREEN}  Ctrl+t     Fuzzy file search                       ${RC}${CYAN}│${RC}"
+    echo -e "${CYAN}│${RC}${GREEN}  Ctrl+g     Fuzzy directory search                  ${RC}${CYAN}│${RC}"
+    echo -e "${CYAN}│${RC}${GREEN}  Ctrl+x     Fuzzy delete (fzfdel)                   ${RC}${CYAN}│${RC}"
+    echo -e "${CYAN}└─────────────────────────────────────────────────────┘${RC}"
     echo ""
 }
 

@@ -913,13 +913,6 @@ updatesys() {
     if [ "$packages_updated" -gt 0 ]; then
         echo "Packages processed: $packages_updated"
     fi
-    if [ ${#failed_packages[@]} -gt 0 ]; then
-        echo -e "${RED}Failed packages (${#failed_packages[@]}):${RC}"
-        for pkg in "${failed_packages[@]}"; do
-            echo "  - $pkg"
-        done
-        echo "Tip: Close running applications and try again"
-    fi
     echo "Time taken: ${minutes}m ${seconds}s"
     echo "Kernel: $(uname -r)"
     echo "Uptime: $(uptime -p)"

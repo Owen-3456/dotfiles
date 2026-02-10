@@ -347,6 +347,7 @@ portscan() {
 }
 
 # Hb: upload a file to hastebin-like service and print URL
+# Hastebin instance hosted by Chris Titus (https://christitus.com/)
 hb() {
     if [ $# -eq 0 ]; then
         echo "No file path specified."
@@ -359,7 +360,9 @@ hb() {
     response=$(curl -s -X POST -d @"$1" "$uri")
     if [ $? -eq 0 ]; then
         hasteKey=$(echo $response | jq -r '.key')
-        echo "http://bin.christitus.com/$hasteKey"
+        url="http://bin.christitus.com/$hasteKey"
+        echo "$url" | xclip -selection clipboard
+        echo "$url - Copied to clipboard."
     else
         echo "Failed to upload the document."
     fi
@@ -1250,4 +1253,3 @@ if command -v zoxide >/dev/null 2>&1; then
     eval "$(zoxide init bash)"
     alias cd='z'
 fi
-

@@ -112,7 +112,7 @@ Fuzzy-search files and directories, multi-select, and move them to trash (recove
 | `ytdl` | Interactive YouTube downloader via `yt-dlp` |
 | `whatsmyip` | Show internal and external IP addresses |
 | `weather [city]` | Terminal weather forecast via `wttr.in` |
-| `hb <file>` | Upload file to a Hastebin instance and get a URL |
+| `hb <file>` | Upload file to a Hastebin instance and copy the URL to clipboard |
 | `openremote` | Open current git repo's remote URL in the browser |
 | `mkcd <dir>` | Create a directory and cd into it |
 | `up <n>` | Go up N directory levels |

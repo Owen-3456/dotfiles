@@ -1250,6 +1250,4 @@ if command -v zoxide >/dev/null 2>&1; then
     eval "$(zoxide init bash)"
     alias cd='z'
 fi
-if command -v brew &>/dev/null; then
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-fi
+

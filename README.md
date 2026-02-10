@@ -19,6 +19,7 @@ git clone https://github.com/Owen-3456/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
 stow bash <package>
 ```
+
 ---
 
 ## Packages
@@ -36,11 +37,11 @@ stow bash <package>
 
 #### Environment
 
-| Variable | Value |
-|---|---|
-| `EDITOR` | `nano` |
-| `VISUAL` | `code -w` (VS Code) |
-| `XDG_*` | Standard XDG base directories |
+| Variable | Value                         |
+| -------- | ----------------------------- |
+| `EDITOR` | `nano`                        |
+| `VISUAL` | `code -w` (VS Code)           |
+| `XDG_*`  | Standard XDG base directories |
 
 PATH includes `~/.local/bin`, `~/.cargo/bin`, and Flatpak export directories.
 
@@ -48,16 +49,16 @@ PATH includes `~/.local/bin`, `~/.cargo/bin`, and Flatpak export directories.
 
 Common commands are aliased to modern replacements when available:
 
-| Alias | Replacement | Fallback |
-|---|---|---|
-| `ls` | `eza` (with icons, long format, dirs first) | `ls --color=auto` |
-| `cat` | `bat` / `batcat` (syntax highlighting) | `cat` |
-| `top` / `htop` | `btop` | original |
-| `grep` | `rg` (ripgrep) | `grep` |
-| `man` | `tldr` | `man` |
-| `neofetch` | `fastfetch` | `neofetch` |
-| `rm` | `trash -v` (trash-cli) | `rm` |
-| `cd` | `z` (zoxide) | `cd` |
+| Alias          | Replacement                                 | Fallback          |
+| -------------- | ------------------------------------------- | ----------------- |
+| `ls`           | `eza` (with icons, long format, dirs first) | `ls --color=auto` |
+| `cat`          | `bat` / `batcat` (syntax highlighting)      | `cat`             |
+| `top` / `htop` | `btop`                                      | original          |
+| `grep`         | `rg` (ripgrep)                              | `grep`            |
+| `man`          | `tldr`                                      | `man`             |
+| `neofetch`     | `fastfetch`                                 | `neofetch`        |
+| `rm`           | `trash -v` (trash-cli)                      | `rm`              |
+| `cd`           | `z` (zoxide)                                | `cd`              |
 
 Additional aliases: `mv -i` (confirm overwrite), `mkdir -p` (create parents), `cls` (clear), `copy` (xclip), `rebootsafe`, `rebootforce`, and a full set of `ls` variants (`la`, `ll`, `lt`, `ltree`, etc.).
 
@@ -105,31 +106,31 @@ Fuzzy-search files and directories, multi-select, and move them to trash (recove
 
 #### Other Useful Functions
 
-| Function | Description |
-|---|---|
-| `extract <file>` | Universal archive extractor (tar, zip, rar, 7z, gz, bz2, etc.) |
-| `serve` | Start an HTTP server in the current directory (Python/PHP) |
-| `ytdl` | Interactive YouTube downloader via `yt-dlp` |
-| `whatsmyip` | Show internal and external IP addresses |
-| `weather [city]` | Terminal weather forecast via `wttr.in` |
-| `hb <file>` | Upload file to a Hastebin instance and copy the URL to clipboard |
-| `openremote` | Open current git repo's remote URL in the browser |
-| `mkcd <dir>` | Create a directory and cd into it |
-| `up <n>` | Go up N directory levels |
-| `gl` | Pretty git log (graph, oneline, all branches) |
-| `gs` | Short git status with branch info |
-| `keybinds` | Print a table of all custom keybindings |
+| Function         | Description                                                      |
+| ---------------- | ---------------------------------------------------------------- |
+| `extract <file>` | Universal archive extractor (tar, zip, rar, 7z, gz, bz2, etc.)   |
+| `serve`          | Start an HTTP server in the current directory (Python/PHP)       |
+| `ytdl`           | Interactive YouTube downloader via `yt-dlp`                      |
+| `whatsmyip`      | Show internal and external IP addresses                          |
+| `weather [city]` | Terminal weather forecast via `wttr.in`                          |
+| `hb <file>`      | Upload file to a Hastebin instance and copy the URL to clipboard |
+| `openremote`     | Open current git repo's remote URL in the browser                |
+| `mkcd <dir>`     | Create a directory and cd into it                                |
+| `up <n>`         | Go up N directory levels                                         |
+| `gl`             | Pretty git log (graph, oneline, all branches)                    |
+| `gs`             | Short git status with branch info                                |
+| `keybinds`       | Print a table of all custom keybindings                          |
 
 #### Keybindings
 
-| Key | Action |
-|---|---|
-| **Ctrl+f** | Zoxide interactive -- fuzzy directory jump |
-| **Ctrl+y** | `installpkg` -- fuzzy package installer |
-| **Ctrl+r** | Fuzzy history search (deduplicated, via `fzf`) |
-| **Ctrl+t** | Fuzzy file search (inserts path at cursor) |
+| Key        | Action                                          |
+| ---------- | ----------------------------------------------- |
+| **Ctrl+f** | Zoxide interactive -- fuzzy directory jump      |
+| **Ctrl+y** | `installpkg` -- fuzzy package installer         |
+| **Ctrl+r** | Fuzzy history search (deduplicated, via `fzf`)  |
+| **Ctrl+t** | Fuzzy file search (inserts path at cursor)      |
 | **Ctrl+g** | Fuzzy directory search (inserts path at cursor) |
-| **Ctrl+x** | `fzfdel` -- fuzzy file deletion |
+| **Ctrl+x** | `fzfdel` -- fuzzy file deletion                 |
 
 #### Shell Integrations
 
@@ -205,7 +206,7 @@ Displays a boxed layout with sections for hardware (host, CPU, GPU, memory), OS 
 
 ## Repository Structure
 
-```
+```text
 ~/.dotfiles/
 ├── alacritty/      # Terminal emulator
 ├── bash/           # Shell config (~1250 lines)

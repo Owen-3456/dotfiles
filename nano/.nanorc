@@ -39,7 +39,7 @@ set linenumbers
 set constantshow
 
 # Remove the help text at the bottom (more space for editing)
-set nohelp
+# set nohelp
 
 # Show whitespace characters
 set whitespace "»·"
@@ -80,8 +80,8 @@ set historylog
 # ========================================
 # SPELL CHECKING
 # ========================================
-# Set default spell checker (uncomment if aspell is installed)
-# set speller "aspell -x -c"
+# Set default spell checker
+set speller "aspell -x -c"
 
 # ========================================
 # KEY BINDINGS

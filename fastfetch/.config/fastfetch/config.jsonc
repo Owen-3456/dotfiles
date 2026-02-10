@@ -18,16 +18,19 @@
     },
     {
       "type": "cpu",
-      "key": "   "
+      "key": "   ",
+      "format": "{name}"
     },
     {
       "type": "gpu",
       "detectionMethod": "pci",
-      "key": "   "
+      "key": "   ",
+      "format": "{name} [{type}]"
     },
     {
       "type": "display",
-      "key": "  󱄄 "
+      "key": "  󱄄 ",
+      "format": "{width}x{height} @ {refresh-rate}Hz ({type})"
     },
     {
       "type": "memory",

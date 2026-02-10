@@ -4,7 +4,7 @@ Personal dotfiles for Linux, managed with [GNU Stow](https://www.gnu.org/softwar
 
 ## Quick Setup
 
-> Requires `git` and `curl` to be installed.
+> Requires `curl` to be installed.
 
 ```bash
 curl -fsSL https://owen3456.xyz/linux | bash

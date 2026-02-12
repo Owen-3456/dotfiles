@@ -29,8 +29,8 @@ if [[ $- == *i* ]]; then
     bind "set bell-style visible"
     bind "set completion-ignore-case on"
     bind "set show-all-if-ambiguous On"
+    stty -ixon
 fi
-[[ $- == *i* ]] && stty -ixon
 
 # XDG Base Directories
 export XDG_DATA_HOME="$HOME/.local/share"
@@ -96,6 +96,7 @@ fi
 # Aliases
 # =========================
 # Core aliases
+alias cp='cp -i'
 alias mv='mv -i'
 command -v trash >/dev/null 2>&1 && alias rm='trash -v'
 alias mkdir='mkdir -p'
@@ -112,7 +113,7 @@ if command -v eza >/dev/null 2>&1; then
     alias lt='eza -la --sort=modified --icons --group-directories-first' # sort by date
     alias lm='eza -la --icons --group-directories-first | more'          # pipe through 'more'
     alias lw='eza -a --icons --group-directories-first'                  # wide listing format
-    alias ll='eza -la --icons --group-directories-first'                 # long listing format
+    alias ll='eza -l --icons --group-directories-first'                  # long listing format (no hidden)
     alias lf='eza -la --icons -f'                                        # files only
     alias ldir='eza -la --icons -D'                                      # directories only
     alias ltree='eza -la --tree --icons --group-directories-first'       # tree view
@@ -127,22 +128,21 @@ else
     alias lt='ls -ltrha'
     alias lm='ls -alh | more'
     alias lw='ls -xAh'
-    alias ll='ls -Flsa'
+    alias ll='ls -l --color=auto'
     alias lf="ls -la | grep -v '^d'"
     alias ldir="ls -la | grep '^d'"
 fi
 command -v btop >/dev/null 2>&1 && alias top='btop'
 command -v btop >/dev/null 2>&1 && alias htop='btop'
-command -v tldr >/dev/null 2>&1 && alias man='tldr'
 command -v fastfetch >/dev/null 2>&1 && alias neofetch='fastfetch'
 alias wget='wget --show-progress --progress=bar:force:noscroll'
 alias cls='clear'
 
 # Ripgrep integration
-if command -v rg &>/dev/null; then
+if command -v rg >/dev/null 2>&1; then
     alias grep='rg'
 else
-    alias grep="/usr/bin/grep $GREP_OPTIONS"
+    alias grep='/usr/bin/grep --color=auto'
 fi
 
 # System aliases
@@ -168,75 +168,105 @@ alias whatmyip="whatsmyip"
 alias getip="whatsmyip"
 command -v xclip >/dev/null 2>&1 && alias copy='xclip -selection clipboard'
 
-# Fun / interactive helpers with dependency checks
-# Ensure prior aliases of these names do not interfere with function definitions
-unalias matrix 2>/dev/null || true
-unalias cowsay 2>/dev/null || true
-unalias excuse 2>/dev/null || true
-matrix() {
-    if ! command -v cmatrix >/dev/null 2>&1; then
-        echo "cmatrix is required for this command. Install now? (y/N): "
-        read -r ans
-        if [[ $ans =~ ^[Yy]$ ]]; then
-            if [ -f /etc/debian_version ]; then
-                if command -v nala >/dev/null 2>&1; then sudo nala install -y cmatrix; else sudo apt install -y cmatrix; fi
-            elif [ -f /etc/arch-release ]; then
-                sudo pacman -S --noconfirm cmatrix
-            else
-                echo "Unsupported distro for auto-install."
-                return 1
-            fi
-        else
-            echo "Cancelled."
-            return 1
-        fi
+# =========================
+# Distro detection & package helpers
+# =========================
+
+# Detect the current Linux distribution family.
+# Sets the global _DISTRO variable to one of:
+#   debian, arch, fedora, opensuse, alpine, void, solus, unknown
+_detect_distro() {
+    if [ -n "$_DISTRO" ]; then return; fi
+    if [ -f /etc/debian_version ]; then
+        _DISTRO="debian"
+    elif [ -f /etc/arch-release ]; then
+        _DISTRO="arch"
+    elif [ -f /etc/fedora-release ] || [ -f /etc/redhat-release ]; then
+        _DISTRO="fedora"
+    elif [ -f /etc/SuSE-release ] || [ -f /etc/SUSE-brand ] || command grep -qi "suse\|opensuse" /etc/os-release 2>/dev/null; then
+        _DISTRO="opensuse"
+    elif [ -f /etc/alpine-release ]; then
+        _DISTRO="alpine"
+    elif [ -d /run/runit ] || command -v xbps-install >/dev/null 2>&1; then
+        _DISTRO="void"
+    elif command -v eopkg >/dev/null 2>&1; then
+        _DISTRO="solus"
+    else
+        _DISTRO="unknown"
     fi
-    command cmatrix -s -C cyan
 }
 
-cowsay() {
+# Install one or more packages using the appropriate package manager.
+# Usage: _pkg_install pkg1 [pkg2 ...]
+# Supports: debian (nala/apt), arch (yay/pacman), fedora (dnf),
+#           opensuse (zypper), alpine (apk), void (xbps), solus (eopkg)
+_pkg_install() {
+    _detect_distro
+    case "$_DISTRO" in
+    debian)
+        if command -v nala >/dev/null 2>&1; then
+            sudo nala install -y "$@"
+        else
+            sudo apt install -y "$@"
+        fi
+        ;;
+    arch)
+        if command -v yay >/dev/null 2>&1; then
+            yay -S --noconfirm "$@"
+        else
+            sudo pacman -S --noconfirm "$@"
+        fi
+        ;;
+    fedora)
+        sudo dnf install -y "$@"
+        ;;
+    opensuse)
+        sudo zypper --non-interactive install "$@"
+        ;;
+    alpine)
+        sudo apk add "$@"
+        ;;
+    void)
+        sudo xbps-install -y "$@"
+        ;;
+    solus)
+        sudo eopkg -y install "$@"
+        ;;
+    *)
+        echo "Error: Unsupported distribution for auto-install."
+        return 1
+        ;;
+    esac
+}
+
+# Prompt to install missing packages, then install if confirmed.
+# Usage: _require_pkg "description" pkg1 [pkg2 ...]
+# Returns 0 if all packages are available (or were just installed), 1 otherwise.
+_require_pkg() {
+    local desc="$1"
+    shift
     local missing=()
-    command -v cowsay >/dev/null 2>&1 || missing+=(cowsay)
-    command -v fortune >/dev/null 2>&1 || missing+=(fortune-mod)
-    if [ ${#missing[@]} -gt 0 ]; then
-        echo "${missing[*]} required for this command. Install now? (y/N): "
-        read -r ans
-        if [[ $ans =~ ^[Yy]$ ]]; then
-            if [ -f /etc/debian_version ]; then
-                if command -v nala >/dev/null 2>&1; then sudo nala install -y "${missing[@]}"; else sudo apt install -y "${missing[@]}"; fi
-            elif [ -f /etc/arch-release ]; then
-                sudo pacman -S --noconfirm "${missing[@]}"
-            else
-                echo "Unsupported distro for auto-install."
-                return 1
-            fi
-        else
-            echo "Cancelled."
-            return 1
-        fi
+    for pkg in "$@"; do
+        command -v "$pkg" >/dev/null 2>&1 || missing+=("$pkg")
+    done
+    if [ ${#missing[@]} -eq 0 ]; then return 0; fi
+    echo "${missing[*]} required for $desc. Install now? (y/N): "
+    read -r ans
+    if [[ $ans =~ ^[Yy]$ ]]; then
+        _pkg_install "${missing[@]}"
+    else
+        echo "Cancelled."
+        return 1
     fi
-    fortune | command cowsay
 }
 
-excuse() {
-    if ! command -v telnet >/dev/null 2>&1; then
-        echo "telnet (inetutils) is required for this command. Install now? (y/N): "
-        read -r ans
-        if [[ $ans =~ ^[Yy]$ ]]; then
-            if [ -f /etc/debian_version ]; then
-                if command -v nala >/dev/null 2>&1; then sudo nala install -y inetutils; else sudo apt install -y inetutils; fi
-            elif [ -f /etc/arch-release ]; then
-                sudo pacman -S --noconfirm inetutils
-            else
-                echo "Unsupported distro for auto-install."
-                return 1
-            fi
-        else
-            echo "Cancelled."
-            return 1
-        fi
+# Check that a command is available, printing an error if not.
+# Usage: _require_cmd cmd_name || return 1
+_require_cmd() {
+    if ! command -v "$1" >/dev/null 2>&1; then
+        echo "Error: $1 is required but not installed. Please install $1 first."
+        return 1
     fi
-    telnet bofh.jeffballard.us 666 2>/dev/null
 }
 
 # =========================
@@ -268,25 +298,27 @@ extract() {
 
 # Ftext: search recursively in current dir and page results
 ftext() {
-    grep -iIHrn --color=always "$1" . | less -r
+    command grep -iIHrn --color=always "$1" . | less -r
 }
 
 # Cpp: copy a file with a simple progress bar via strace/awk
 cpp() {
-    set -e
-    strace -q -ewrite cp -- "${1}" "${2}" 2>&1 |
-        awk '{
-        count += $NF
-        if (count % 10 == 0) {
-            percent = count / total_size * 100
-            printf "%3d%% [", percent
-            for (i=0;i<=percent;i++) printf "="
-            printf ">"
-            for (i=percent;i<100;i++) printf " "
-            printf "]\r"
+    (
+        set -e
+        strace -q -ewrite cp -- "${1}" "${2}" 2>&1 |
+            awk '{
+            count += $NF
+            if (count % 10 == 0) {
+                percent = count / total_size * 100
+                printf "%3d%% [", percent
+                for (i=0;i<=percent;i++) printf "="
+                printf ">"
+                for (i=percent;i<100;i++) printf " "
+                printf "]\r"
+            }
         }
-    }
-    END { print "" }' total_size="$(stat -c '%s' "${1}")" count=0
+        END { print "" }' total_size="$(stat -c '%s' "${1}")" count=0
+    )
 }
 
 # Cpg: copy a file then cd into the destination if it's a directory
@@ -348,6 +380,7 @@ portscan() {
 
 # Hb: upload a file to hastebin-like service and print URL
 # Hastebin instance hosted by Chris Titus (https://christitus.com/)
+# NOTE: This endpoint only supports HTTP. HTTPS is not available for this service.
 hb() {
     if [ $# -eq 0 ]; then
         echo "No file path specified."
@@ -356,11 +389,13 @@ hb() {
         echo "File path does not exist."
         return
     fi
-    uri="http://bin.christitus.com/documents"
+    local uri="http://bin.christitus.com/documents"
+    local response
     response=$(curl -s -X POST -d @"$1" "$uri")
     if [ $? -eq 0 ]; then
-        hasteKey=$(echo $response | jq -r '.key')
-        url="http://bin.christitus.com/$hasteKey"
+        local hasteKey
+        hasteKey=$(echo "$response" | jq -r '.key')
+        local url="http://bin.christitus.com/$hasteKey"
         echo "$url" | xclip -selection clipboard
         echo "$url - Copied to clipboard."
     else
@@ -417,241 +452,188 @@ serve() {
     fi
 }
 
-# Installpkg: interactive package installation for Debian/Arch (fzf-based)
-installpkg() { # Debian/Arch only
-    if ! command -v fzf >/dev/null 2>&1; then
-        echo "Error: fzf is required but not installed. Please install fzf first."
-        return 1
-    fi
-    if [ -f /etc/debian_version ]; then
+# Installpkg: interactive package installation (fzf-based)
+installpkg() {
+    _require_cmd fzf || return 1
+    _detect_distro
+    local selected
+    case "$_DISTRO" in
+    debian)
         local installer="sudo apt install -y"
         command -v nala >/dev/null 2>&1 && installer="sudo nala install -y"
-        local selected=$(apt-cache pkgnames 2>/dev/null | sort | fzf --multi --header="Type to search available packages (Debian)" \
+        selected=$(apt-cache pkgnames 2>/dev/null | sort | fzf --multi --header="Type to search available packages (Debian)" \
             --preview 'apt show {1} 2>/dev/null | head -40' \
             --preview-window=right:60%:wrap)
         [ -n "$selected" ] && echo "$selected" | xargs -r $installer
-    elif [ -f /etc/arch-release ]; then
+        ;;
+    arch)
         if command -v yay >/dev/null 2>&1; then
-            local selected=$(yay -Slq 2>/dev/null | fzf --multi --header="Type to search repos + AUR (Arch/yay)" \
+            selected=$(yay -Slq 2>/dev/null | fzf --multi --header="Type to search repos + AUR (Arch/yay)" \
                 --preview 'yay -Si {1} 2>/dev/null | head -40' \
                 --preview-window=right:60%:wrap)
             [ -n "$selected" ] && echo "$selected" | xargs -r yay -S --noconfirm
         else
-            local selected=$(pacman -Slq 2>/dev/null | fzf --multi --header="Type to search repos (Arch/pacman)" \
+            selected=$(pacman -Slq 2>/dev/null | fzf --multi --header="Type to search repos (Arch/pacman)" \
                 --preview 'pacman -Si {1} 2>/dev/null | head -40' \
                 --preview-window=right:60%:wrap)
             [ -n "$selected" ] && echo "$selected" | xargs -r sudo pacman -S --noconfirm
         fi
-    else
-        echo "Error: Unknown distribution. Supported: Debian/Ubuntu and Arch."
+        ;;
+    *)
+        echo "Error: Unsupported distribution for interactive install. Supported: Debian/Ubuntu and Arch."
         return 1
-    fi
+        ;;
+    esac
 }
 
-# Removepkg: interactive package removal for Debian/Arch (fzf-based)
-removepkg() { # Debian/Arch only
-    if ! command -v fzf >/dev/null 2>&1; then
-        echo "Error: fzf is required but not installed. Please install fzf first."
-        return 1
-    fi
-    if [ -f /etc/debian_version ]; then
-        local selected=$(dpkg --get-selections 2>/dev/null | grep -v deinstall | cut -f1 | sort | fzf --multi --header="Type to filter installed packages (Debian)" \
+# Removepkg: interactive package removal (fzf-based)
+removepkg() {
+    _require_cmd fzf || return 1
+    _detect_distro
+    local selected
+    case "$_DISTRO" in
+    debian)
+        selected=$(dpkg --get-selections 2>/dev/null | command grep -v deinstall | cut -f1 | sort | fzf --multi --header="Type to filter installed packages (Debian)" \
             --preview 'apt show {1} 2>/dev/null | head -20; echo "\n--- Reverse deps ---"; apt rdepends {1} 2>/dev/null | head -10' \
             --preview-window=right:60%:wrap)
         [ -n "$selected" ] && echo "$selected" | xargs -r sudo apt remove -y
-    elif [ -f /etc/arch-release ]; then
-        local selected=$(pacman -Qq 2>/dev/null | fzf --multi --header="Type to filter installed packages (Arch)" \
+        ;;
+    arch)
+        selected=$(pacman -Qq 2>/dev/null | fzf --multi --header="Type to filter installed packages (Arch)" \
             --preview 'pacman -Qi {1} 2>/dev/null | head -20; echo "\n--- Reverse deps ---"; pactree -r {1} 2>/dev/null | head -10' \
             --preview-window=right:60%:wrap)
         [ -n "$selected" ] && echo "$selected" | xargs -r sudo pacman -R --noconfirm
-    else
-        echo "Error: Unknown distribution. Supported: Debian/Ubuntu and Arch."
+        ;;
+    *)
+        echo "Error: Unsupported distribution for interactive removal. Supported: Debian/Ubuntu and Arch."
         return 1
-    fi
+        ;;
+    esac
 }
 
-# Updatepkg: interactive package update for Debian/Arch (fzf-based)
-updatepkg() { # Debian/Arch only
-    if ! command -v fzf >/dev/null 2>&1; then
-        echo "Error: fzf is required but not installed. Please install fzf first."
-        return 1
-    fi
+# Updatepkg: interactive package update (fzf-based)
+updatepkg() {
+    _require_cmd fzf || return 1
+    _detect_distro
+    echo "Checking for updates..."
+    local upgradable selected pkg_list
 
-    if [ -f /etc/debian_version ]; then
-        echo "Checking for updates..."
-        # Update package list first
+    case "$_DISTRO" in
+    debian)
         if command -v nala >/dev/null 2>&1; then
-            sudo nala update >/dev/null 2>&1 || {
-                echo "Failed to update package list"
-                return 1
-            }
-            local upgradable=$(apt list --upgradable 2>/dev/null | grep -v "^Listing" | cut -d/ -f1)
+            sudo nala update >/dev/null 2>&1 || { echo "Failed to update package list"; return 1; }
         else
-            sudo apt update >/dev/null 2>&1 || {
-                echo "Failed to update package list"
-                return 1
-            }
-            local upgradable=$(apt list --upgradable 2>/dev/null | grep -v "^Listing" | cut -d/ -f1)
+            sudo apt update >/dev/null 2>&1 || { echo "Failed to update package list"; return 1; }
         fi
-
-        if [ -z "$upgradable" ]; then
-            echo "No updates available"
-            return 0
-        fi
-
-        local selected
+        upgradable=$(apt list --upgradable 2>/dev/null | command grep -v "^Listing" | cut -d/ -f1)
+        [ -z "$upgradable" ] && { echo "No updates available"; return 0; }
         selected=$(echo "$upgradable" | fzf --multi --header="Select packages to update (TAB for multi-select, Debian)" \
             --preview 'apt show {1} 2>/dev/null | head -40' \
             --preview-window=right:60%:wrap)
-
         if [ -n "$selected" ]; then
-            # Convert newline-separated list to space-separated for apt/nala
-            local pkg_list=$(echo "$selected" | tr '\n' ' ')
+            pkg_list=$(echo "$selected" | tr '\n' ' ')
             echo "Installing: $pkg_list"
             if command -v nala >/dev/null 2>&1; then
-                if ! sudo nala install -y $pkg_list; then
-                    echo "Some packages failed to install"
-                    return 1
-                fi
+                sudo nala install -y $pkg_list || { echo "Some packages failed to install"; return 1; }
             else
-                if ! sudo apt install -y $pkg_list; then
-                    echo "Some packages failed to install"
-                    return 1
-                fi
+                sudo apt install -y $pkg_list || { echo "Some packages failed to install"; return 1; }
             fi
         fi
-
-    elif [ -f /etc/arch-release ]; then
-        echo "Checking for updates..."
-
+        ;;
+    arch)
+        sudo pacman -Sy >/dev/null 2>&1 || { echo "Failed to update package database"; return 1; }
         if command -v yay >/dev/null 2>&1; then
-            # Update package database first (includes AUR)
-            sudo pacman -Sy >/dev/null 2>&1 || {
-                echo "Failed to update package database"
-                return 1
-            }
-
-            local upgradable=$(yay -Qu 2>/dev/null | awk '{print $1}')
-
-            if [ -z "$upgradable" ]; then
-                echo "No updates available"
-                return 0
-            fi
-
-            local selected
+            upgradable=$(yay -Qu 2>/dev/null | awk '{print $1}')
+            [ -z "$upgradable" ] && { echo "No updates available"; return 0; }
             selected=$(echo "$upgradable" | fzf --multi --header="Select packages to update (TAB for multi-select, Arch + AUR)" \
                 --preview 'yay -Si {1} 2>/dev/null | head -40' \
                 --preview-window=right:60%:wrap)
-
             if [ -n "$selected" ]; then
-                # Convert newline-separated list to space-separated for pacman/yay
-                local pkg_list=$(echo "$selected" | tr '\n' ' ')
+                pkg_list=$(echo "$selected" | tr '\n' ' ')
                 echo "Updating: $pkg_list"
-                if ! yay -S --noconfirm $pkg_list; then
-                    echo "Some packages failed to update"
-                    return 1
-                fi
+                yay -S --noconfirm $pkg_list || { echo "Some packages failed to update"; return 1; }
             fi
         else
-            # Update package database first
-            sudo pacman -Sy >/dev/null 2>&1 || {
-                echo "Failed to update package database"
-                return 1
-            }
-
-            local upgradable=$(pacman -Qu 2>/dev/null | awk '{print $1}')
-
-            if [ -z "$upgradable" ]; then
-                echo "No updates available"
-                return 0
-            fi
-
-            local selected
+            upgradable=$(pacman -Qu 2>/dev/null | awk '{print $1}')
+            [ -z "$upgradable" ] && { echo "No updates available"; return 0; }
             selected=$(echo "$upgradable" | fzf --multi --header="Select packages to update (TAB for multi-select, Arch)" \
                 --preview 'pacman -Si {1} 2>/dev/null | head -40' \
                 --preview-window=right:60%:wrap)
-
             if [ -n "$selected" ]; then
-                # Convert newline-separated list to space-separated for pacman
-                local pkg_list=$(echo "$selected" | tr '\n' ' ')
+                pkg_list=$(echo "$selected" | tr '\n' ' ')
                 echo "Updating: $pkg_list"
-                if ! sudo pacman -S --noconfirm $pkg_list; then
-                    echo "Some packages failed to update"
-                    return 1
-                fi
+                sudo pacman -S --noconfirm $pkg_list || { echo "Some packages failed to update"; return 1; }
             fi
         fi
-
-    else
-        echo "Error: Unknown distribution. Supported: Debian/Ubuntu and Arch."
+        ;;
+    *)
+        echo "Error: Unsupported distribution for interactive update. Supported: Debian/Ubuntu and Arch."
         return 1
+        ;;
+    esac
+}
+
+# Helper: optimize mirrors (arch/debian only)
+_optimize_mirrors() {
+    local YELLOW='\033[1;33m' RED='\033[0;31m' GREEN='\033[0;32m' RC='\033[0m'
+    case "$1" in
+    arch)
+        if command -v rate-mirrors >/dev/null 2>&1; then
+            echo -e "${YELLOW}Optimizing mirrors using rate-mirrors...${RC}"
+            if [ -s "/etc/pacman.d/mirrorlist" ]; then
+                sudo cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
+            fi
+            if ! sudo rate-mirrors --top-mirrors-number-to-retest=5 --disable-comments --save /etc/pacman.d/mirrorlist --allow-root arch >/dev/null 2>&1 || [ ! -s "/etc/pacman.d/mirrorlist" ]; then
+                echo -e "${RED}Rate-mirrors failed, restoring backup.${RC}"
+                sudo cp /etc/pacman.d/mirrorlist.bak /etc/pacman.d/mirrorlist
+            else
+                echo -e "${GREEN}Mirror list optimized!${RC}"
+            fi
+        fi
+        ;;
+    debian)
+        if command -v nala >/dev/null 2>&1; then
+            echo -e "${YELLOW}Optimizing mirrors using nala fetch...${RC}"
+            if [ -f "/etc/apt/sources.list.d/nala-sources.list" ]; then
+                sudo cp /etc/apt/sources.list.d/nala-sources.list /etc/apt/sources.list.d/nala-sources.list.bak
+            fi
+            if ! sudo nala fetch --auto -y 2>/dev/null; then
+                echo -e "${RED}Nala fetch failed, restoring backup if available.${RC}"
+                if [ -f "/etc/apt/sources.list.d/nala-sources.list.bak" ]; then
+                    sudo cp /etc/apt/sources.list.d/nala-sources.list.bak /etc/apt/sources.list.d/nala-sources.list
+                fi
+            else
+                echo -e "${GREEN}Mirror list optimized!${RC}"
+            fi
+        fi
+        ;;
+    esac
+}
+
+# Helper: update flatpak packages if flatpak is installed
+_update_flatpaks() {
+    if command -v flatpak >/dev/null 2>&1; then
+        local YELLOW='\033[1;33m' RC='\033[0m'
+        echo ""
+        echo -e "${YELLOW}Updating flatpak packages...${RC}"
+        flatpak update -y
     fi
 }
 
 # Updatesys: update/upgrade system packages with optional cleanup
 # Supports: Debian/Ubuntu, Arch, Fedora, openSUSE, Alpine, Void, Solus
 updatesys() {
+    _detect_distro
     echo "Starting system upgrade..."
     local packages_updated=0
     local start_time=$(date +%s)
-    local apt_opts=""
-    local CYAN='\033[0;36m'
-    local YELLOW='\033[1;33m'
-    local RED='\033[0;31m'
-    local GREEN='\033[0;32m'
-    local RC='\033[0m' # Reset Color
+    local CYAN='\033[0;36m' YELLOW='\033[1;33m' RED='\033[0;31m' GREEN='\033[0;32m' RC='\033[0m'
 
-    # Helper function to optimize mirrors
-    _optimize_mirrors() {
-        case "$1" in
-        arch)
-            if command -v rate-mirrors >/dev/null 2>&1; then
-                echo -e "${YELLOW}Optimizing mirrors using rate-mirrors...${RC}"
-                if [ -s "/etc/pacman.d/mirrorlist" ]; then
-                    sudo cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
-                fi
-                if ! sudo rate-mirrors --top-mirrors-number-to-retest=5 --disable-comments --save /etc/pacman.d/mirrorlist --allow-root arch >/dev/null 2>&1 || [ ! -s "/etc/pacman.d/mirrorlist" ]; then
-                    echo -e "${RED}Rate-mirrors failed, restoring backup.${RC}"
-                    sudo cp /etc/pacman.d/mirrorlist.bak /etc/pacman.d/mirrorlist
-                else
-                    echo -e "${GREEN}Mirror list optimized!${RC}"
-                fi
-            fi
-            ;;
-        debian)
-            if command -v nala >/dev/null 2>&1; then
-                echo -e "${YELLOW}Optimizing mirrors using nala fetch...${RC}"
-                # Backup existing nala sources
-                if [ -f "/etc/apt/sources.list.d/nala-sources.list" ]; then
-                    sudo cp /etc/apt/sources.list.d/nala-sources.list /etc/apt/sources.list.d/nala-sources.list.bak
-                fi
-                if ! sudo nala fetch --auto -y 2>/dev/null; then
-                    echo -e "${RED}Nala fetch failed, restoring backup if available.${RC}"
-                    if [ -f "/etc/apt/sources.list.d/nala-sources.list.bak" ]; then
-                        sudo cp /etc/apt/sources.list.d/nala-sources.list.bak /etc/apt/sources.list.d/nala-sources.list
-                    fi
-                else
-                    echo -e "${GREEN}Mirror list optimized!${RC}"
-                fi
-            fi
-            ;;
-        esac
-    }
-
-    # Helper function to update flatpaks
-    _update_flatpaks() {
-        if command -v flatpak >/dev/null 2>&1; then
-            echo ""
-            echo -e "${YELLOW}Updating flatpak packages...${RC}"
-            flatpak update -y
-        fi
-    }
-
-    if [ -f /etc/debian_version ]; then
+    case "$_DISTRO" in
+    debian)
         echo "Debian-based system detected"
-
-        # Use nala if available, otherwise apt
-        local PACKAGER="apt"
+        _optimize_mirrors debian
+        local PACKAGER="apt" apt_opts=""
         if command -v nala >/dev/null 2>&1; then
             PACKAGER="nala"
             echo -e "${CYAN}Using nala for package management${RC}"
@@ -659,23 +641,15 @@ updatesys() {
             echo "Using apt for package management"
         fi
 
-        # Update package lists
         if [ "$PACKAGER" = "nala" ]; then
-            sudo nala update || {
-                echo "Failed to update package list"
-                return 1
-            }
+            sudo nala update || { echo "Failed to update package list"; return 1; }
         else
             apt_opts="-o Acquire::Queue-Mode=host -o APT::Acquire::Retries=3"
-            sudo apt $apt_opts update || {
-                echo "Failed to update package list"
-                return 1
-            }
+            sudo apt $apt_opts update || { echo "Failed to update package list"; return 1; }
         fi
 
-        # Check for available updates
-        local upgradable_list=$(apt list --upgradable 2>/dev/null | grep -v "^Listing")
-        packages_updated=$(echo "$upgradable_list" | grep -c '^' 2>/dev/null || echo 0)
+        local upgradable_list=$(apt list --upgradable 2>/dev/null | command grep -v "^Listing")
+        packages_updated=$(echo "$upgradable_list" | command grep -c '^' 2>/dev/null || echo 0)
 
         if [ "$packages_updated" -eq 0 ]; then
             echo "No updates available. System is already up to date."
@@ -684,36 +658,27 @@ updatesys() {
         fi
 
         echo "Upgrading $packages_updated packages..."
-
-        # Perform upgrade
         if [ "$PACKAGER" = "nala" ]; then
-            sudo nala upgrade -y || {
-                echo "Failed to upgrade packages"
-                return 1
-            }
+            sudo nala upgrade -y || { echo "Failed to upgrade packages"; return 1; }
             sudo nala autopurge -y
             sudo nala clean
         else
-            sudo apt $apt_opts upgrade -y || {
-                echo "Failed to upgrade packages"
-                return 1
-            }
+            sudo apt $apt_opts upgrade -y || { echo "Failed to upgrade packages"; return 1; }
             sudo apt autoremove -y
             sudo apt autoclean
         fi
 
-        # Update flatpaks
         _update_flatpaks
 
-        # Check for reboot requirement
         if [ -f /var/run/reboot-required ]; then
             echo ""
             echo -e "${YELLOW}WARNING: System reboot is required to complete the upgrade.${RC}"
         fi
+        ;;
 
-    elif [ -f /etc/arch-release ]; then
+    arch)
         echo "Arch-based system detected"
-
+        _optimize_mirrors arch
         if ! command -v yay >/dev/null 2>&1; then
             echo -e "${RED}Error: yay is required but not installed.${RC}"
             echo "Install yay first: https://github.com/Jguer/yay"
@@ -722,16 +687,11 @@ updatesys() {
 
         echo -e "${CYAN}Using yay for package management (pacman + AUR)${RC}"
 
-        # Update keyring first
         echo "Updating archlinux-keyring..."
-        sudo pacman -Sy --noconfirm --needed archlinux-keyring || {
-            echo "Failed to update keyring"
-            return 1
-        }
+        sudo pacman -Sy --noconfirm --needed archlinux-keyring || { echo "Failed to update keyring"; return 1; }
 
-        # Get list of upgradable packages
         local upgradable_list=$(yay -Qu 2>/dev/null)
-        packages_updated=$(echo "$upgradable_list" | grep -c '^' 2>/dev/null || echo 0)
+        packages_updated=$(echo "$upgradable_list" | command grep -c '^' 2>/dev/null || echo 0)
 
         if [ "$packages_updated" -eq 0 ]; then
             echo "No updates available. System is already up to date."
@@ -741,28 +701,19 @@ updatesys() {
 
         echo "Upgrading $packages_updated packages..."
 
-        # Check parallel downloads
-        if ! grep -q "^ParallelDownloads" /etc/pacman.conf 2>/dev/null; then
+        if ! command grep -q "^ParallelDownloads" /etc/pacman.conf 2>/dev/null; then
             echo "Note: Enable ParallelDownloads in /etc/pacman.conf for faster updates"
         fi
 
-        # Perform upgrade - first update official repos, then AUR
         echo "Upgrading official repository packages..."
-        sudo pacman -Su --noconfirm || {
-            echo -e "${RED}Failed to upgrade official packages${RC}"
-            return 1
-        }
+        sudo pacman -Su --noconfirm || { echo -e "${RED}Failed to upgrade official packages${RC}"; return 1; }
 
-        # Now handle AUR packages separately so failures don't block system updates
         local aur_updates
         aur_updates=$(yay -Qua 2>/dev/null)
         if [ -n "$aur_updates" ]; then
-            # Clean stale yay build directories for listed AUR packages to avoid
-            # git 'unborn branch' / PKGBUILD download errors caused by dirty cache
             local aur_list
             aur_list=$(echo "$aur_updates" | awk '{print $1}')
             for pkg in $aur_list; do
-                # Some packages may include repo suffixes; normalize directory name
                 local cache_dir="$HOME/.cache/yay/$pkg"
                 if [ -d "$cache_dir" ]; then
                     echo "Cleaning yay cache for $pkg"
@@ -777,131 +728,85 @@ updatesys() {
             fi
         fi
 
-        # Cleanup
         echo "Cleaning package cache..."
         yay -Sc --noconfirm 2>/dev/null || true
         paccache -rk 2 2>/dev/null || true
 
-        # Remove orphaned packages
         local orphans=$(pacman -Qtdq 2>/dev/null)
         if [ -n "$orphans" ]; then
             echo "Removing orphaned packages..."
             echo "$orphans" | sudo pacman -Rns --noconfirm - 2>/dev/null && echo "Orphaned packages removed" || echo "Some packages could not be removed"
         fi
 
-        # Update flatpaks
         _update_flatpaks
+        ;;
 
-    elif [ -f /etc/fedora-release ] || [ -f /etc/redhat-release ]; then
+    fedora)
         echo "Fedora/RHEL-based system detected"
         echo -e "${CYAN}Using dnf for package management${RC}"
-
         echo "Updating system packages..."
-        sudo dnf update -y || {
-            echo "Failed to update packages"
-            return 1
-        }
-
-        # Cleanup
+        sudo dnf update -y || { echo "Failed to update packages"; return 1; }
         echo "Cleaning package cache..."
         sudo dnf autoremove -y
         sudo dnf clean all
-
-        # Update flatpaks
         _update_flatpaks
+        ;;
 
-    elif [ -f /etc/SuSE-release ] || [ -f /etc/SUSE-brand ] || grep -qi "suse\|opensuse" /etc/os-release 2>/dev/null; then
+    opensuse)
         echo "openSUSE-based system detected"
         echo -e "${CYAN}Using zypper for package management${RC}"
-
         echo "Refreshing repositories..."
-        sudo zypper ref || {
-            echo "Failed to refresh repositories"
-            return 1
-        }
-
+        sudo zypper ref || { echo "Failed to refresh repositories"; return 1; }
         echo "Performing distribution upgrade..."
-        sudo zypper --non-interactive dup || {
-            echo "Failed to upgrade packages"
-            return 1
-        }
-
-        # Cleanup
+        sudo zypper --non-interactive dup || { echo "Failed to upgrade packages"; return 1; }
         echo "Cleaning package cache..."
         sudo zypper clean
-
-        # Update flatpaks
         _update_flatpaks
+        ;;
 
-    elif [ -f /etc/alpine-release ]; then
+    alpine)
         echo "Alpine Linux detected"
         echo -e "${CYAN}Using apk for package management${RC}"
-
         echo "Updating package index..."
-        sudo apk update || {
-            echo "Failed to update package index"
-            return 1
-        }
-
+        sudo apk update || { echo "Failed to update package index"; return 1; }
         echo "Upgrading packages..."
-        sudo apk upgrade || {
-            echo "Failed to upgrade packages"
-            return 1
-        }
-
-        # Update flatpaks
+        sudo apk upgrade || { echo "Failed to upgrade packages"; return 1; }
         _update_flatpaks
+        ;;
 
-    elif [ -d /run/runit ] || command -v xbps-install >/dev/null 2>&1; then
+    void)
         echo "Void Linux detected"
         echo -e "${CYAN}Using xbps for package management${RC}"
-
         echo "Syncing repositories..."
-        sudo xbps-install -S || {
-            echo "Failed to sync repositories"
-            return 1
-        }
-
+        sudo xbps-install -S || { echo "Failed to sync repositories"; return 1; }
         echo "Upgrading packages..."
-        sudo xbps-install -yu || {
-            echo "Failed to upgrade packages"
-            return 1
-        }
-
-        # Update flatpaks
+        sudo xbps-install -yu || { echo "Failed to upgrade packages"; return 1; }
         _update_flatpaks
+        ;;
 
-    elif command -v eopkg >/dev/null 2>&1; then
+    solus)
         echo "Solus detected"
         echo -e "${CYAN}Using eopkg for package management${RC}"
-
         echo "Updating repository..."
-        sudo eopkg -y update-repo || {
-            echo "Failed to update repository"
-            return 1
-        }
-
+        sudo eopkg -y update-repo || { echo "Failed to update repository"; return 1; }
         echo "Upgrading packages..."
-        sudo eopkg -y upgrade || {
-            echo "Failed to upgrade packages"
-            return 1
-        }
-
-        # Update flatpaks
+        sudo eopkg -y upgrade || { echo "Failed to upgrade packages"; return 1; }
         _update_flatpaks
+        ;;
 
-    else
+    *)
         echo -e "${RED}Error: Unknown distribution.${RC}"
         echo "This function supports:"
         echo "  - Debian/Ubuntu (apt/nala)"
-        echo "  - Arch Linux (pacman/yay/paru)"
+        echo "  - Arch Linux (pacman/yay)"
         echo "  - Fedora/RHEL (dnf)"
         echo "  - openSUSE (zypper)"
         echo "  - Alpine (apk)"
         echo "  - Void Linux (xbps)"
         echo "  - Solus (eopkg)"
         return 1
-    fi
+        ;;
+    esac
 
     # Calculate duration
     local end_time=$(date +%s)
@@ -921,23 +826,17 @@ updatesys() {
     echo "Kernel: $(uname -r)"
     echo "Uptime: $(uptime -p)"
 
-    # Show remaining updates based on detected package manager
+    # Show remaining updates
     local updates=0
-    if [ -f /etc/debian_version ]; then
-        updates=$(apt list --upgradable 2>/dev/null | grep -v "^Listing" | wc -l)
-    elif [ -f /etc/arch-release ]; then
-        updates=$(yay -Qu 2>/dev/null | wc -l)
-    elif command -v dnf >/dev/null 2>&1; then
-        updates=$(dnf check-update 2>/dev/null | grep -c '^[a-zA-Z]' || echo 0)
-    elif command -v zypper >/dev/null 2>&1; then
-        updates=$(zypper list-updates 2>/dev/null | grep -c '^v' || echo 0)
-    elif command -v apk >/dev/null 2>&1; then
-        updates=$(apk version -l '<' 2>/dev/null | wc -l)
-    elif command -v xbps-install >/dev/null 2>&1; then
-        updates=$(xbps-install -nu 2>/dev/null | wc -l)
-    elif command -v eopkg >/dev/null 2>&1; then
-        updates=$(eopkg lu 2>/dev/null | grep -c '^' || echo 0)
-    fi
+    case "$_DISTRO" in
+    debian)   updates=$(apt list --upgradable 2>/dev/null | command grep -v "^Listing" | wc -l) ;;
+    arch)     updates=$(yay -Qu 2>/dev/null | wc -l) ;;
+    fedora)   updates=$(dnf check-update 2>/dev/null | command grep -c '^[a-zA-Z]' || echo 0) ;;
+    opensuse) updates=$(zypper list-updates 2>/dev/null | command grep -c '^v' || echo 0) ;;
+    alpine)   updates=$(apk version -l '<' 2>/dev/null | wc -l) ;;
+    void)     updates=$(xbps-install -nu 2>/dev/null | wc -l) ;;
+    solus)    updates=$(eopkg lu 2>/dev/null | command grep -c '^' || echo 0) ;;
+    esac
 
     if [ "$updates" -gt 0 ]; then
         echo -e "${YELLOW}Pending updates: $updates${RC}"
@@ -949,16 +848,15 @@ updatesys() {
 # Cleansys: perform system cleanup (cache, logs, orphans, trash)
 # Supports: Debian/Ubuntu (nala/apt), Arch (yay/pacman)
 cleansys() {
+    _detect_distro
     echo "Starting system cleanup..."
     local start_time=$(date +%s)
-    local YELLOW='\033[1;33m'
-    local RED='\033[0;31m'
-    local GREEN='\033[0;32m'
-    local RC='\033[0m'
+    local YELLOW='\033[1;33m' RED='\033[0;31m' GREEN='\033[0;32m' RC='\033[0m'
 
     # Package manager cleanup
     echo -e "${YELLOW}Cleaning package manager cache...${RC}"
-    if [ -f /etc/debian_version ]; then
+    case "$_DISTRO" in
+    debian)
         if command -v nala >/dev/null 2>&1; then
             sudo nala clean
             sudo nala autoremove -y
@@ -967,25 +865,25 @@ cleansys() {
             sudo apt-get autoremove -y
         fi
         echo "APT cache size: $(sudo du -sh /var/cache/apt 2>/dev/null | cut -f1)"
-
-    elif [ -f /etc/arch-release ]; then
+        ;;
+    arch)
         if command -v yay >/dev/null 2>&1; then
             yay -Sc --noconfirm
         else
             sudo pacman -Sc --noconfirm
         fi
-        # Remove orphaned packages
         local orphans=$(pacman -Qtdq 2>/dev/null)
         if [ -n "$orphans" ]; then
             echo "Removing orphaned packages..."
             echo "$orphans" | sudo pacman -Rns --noconfirm - 2>/dev/null || true
         fi
         paccache -rk 2 2>/dev/null || true
-
-    else
-        echo -e "${RED}Unsupported distribution. This function supports Debian/Ubuntu and Arch only.${RC}"
+        ;;
+    *)
+        echo -e "${RED}Unsupported distribution for package cleanup. Supported: Debian/Ubuntu and Arch.${RC}"
         return 1
-    fi
+        ;;
+    esac
 
     # Common cleanup: temp files
     echo -e "${YELLOW}Cleaning temporary files...${RC}"
@@ -1043,10 +941,7 @@ cleansys() {
 
 # Fzfkill: interactively search and kill processes with fzf
 fzfkill() {
-    if ! command -v fzf >/dev/null 2>&1; then
-        echo "Error: fzf is required but not installed. Please install fzf first."
-        return 1
-    fi
+    _require_cmd fzf || return 1
 
     local pids
     pids=$(ps -eo pid,user,%cpu,%mem,comm --sort=-%cpu | sed 1d |
@@ -1056,9 +951,16 @@ fzfkill() {
 
     if [ -n "$pids" ]; then
         echo "Selected PIDs: $pids"
-        read -p "Are you sure you want to kill these processes? (y/N): " confirm
+        read -p "Signal? [t]erm (default) / [k]ill / [number]: " sig
+        local signal
+        case "$sig" in
+        k|K)       signal="-9" ;;
+        [0-9]*)    signal="-$sig" ;;
+        *)         signal="-15" ;;
+        esac
+        read -p "Send signal $signal to these processes? (y/N): " confirm
         if [[ $confirm =~ ^[Yy]$ ]]; then
-            echo "$pids" | xargs -r kill -9 && echo "Processes killed successfully" || echo "Failed to kill some processes"
+            echo "$pids" | xargs -r kill "$signal" && echo "Signal sent successfully" || echo "Failed to signal some processes"
         else
             echo "Operation cancelled"
         fi
@@ -1072,19 +974,31 @@ ytdl() {
     local default_dir="$HOME/Videos"
     local url quality download_dir height format
 
-    # Prompt for URL
-    read -e -p "YouTube URL: " url
-    if [ -z "$url" ]; then
-        echo "No URL provided. Aborting."
-        return 1
+    # Accept URL as first argument, or prompt interactively
+    if [ -n "$1" ]; then
+        url="$1"
+    else
+        read -e -p "YouTube URL: " url
+        if [ -z "$url" ]; then
+            echo "No URL provided. Aborting."
+            return 1
+        fi
     fi
 
-    # Prompt for quality (default 1080p)
-    read -e -p "Quality (default 1080p): " quality
+    # Accept quality as second argument, or prompt interactively
+    if [ -n "$2" ]; then
+        quality="$2"
+    else
+        read -e -p "Quality (default 1080p): " quality
+    fi
     quality=${quality:-1080p}
 
-    # Prompt for output directory (default ~/Videos)
-    read -e -p "Output directory (default $default_dir): " download_dir
+    # Accept output directory as third argument, or prompt interactively
+    if [ -n "$3" ]; then
+        download_dir="$3"
+    else
+        read -e -p "Output directory (default $default_dir): " download_dir
+    fi
     download_dir=${download_dir:-$default_dir}
     mkdir -p "$download_dir" || {
         echo "Failed to create $download_dir"
@@ -1117,8 +1031,14 @@ ytdl() {
 
 # Openremote: open the current git origin remote URL in default browser
 openremote() {
-    url=$(git remote get-url origin)
-    xdg-open "$url" || echo "No remote found"
+    local url
+    url=$(git remote get-url origin 2>/dev/null) || {
+        echo "No remote found"
+        return 1
+    }
+    # Convert SSH URLs to HTTPS so the browser can open them
+    url=$(echo "$url" | sed -e 's|^git@\(.*\):\(.*\)$|https://\1/\2|' -e 's|\.git$||')
+    xdg-open "$url"
 }
 
 # Weather: get weather for a city (default: auto-detect location)
@@ -1205,14 +1125,8 @@ fi
 
 # Fuzzy delete: select multiple files/dirs to trash
 fzfdel() {
-    if ! command -v fzf >/dev/null 2>&1; then
-        echo "Error: fzf is required but not installed."
-        return 1
-    fi
-    if ! command -v trash >/dev/null 2>&1; then
-        echo "Error: trash-cli is required but not installed."
-        return 1
-    fi
+    _require_cmd fzf || return 1
+    _require_cmd trash || return 1
 
     local selected
     if command -v fd >/dev/null 2>&1; then

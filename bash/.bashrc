@@ -852,7 +852,19 @@ _update_flatpaks() {
 # Supports: Debian/Ubuntu, Arch, Fedora, openSUSE, Alpine, Void, Solus
 # Output uses spinners and step headers for a clean, readable UI.
 # All command output is redirected to a log file; errors surface clearly.
+# Usage: updatesys [-m|--optimize-mirrors]
 updatesys() {
+    local optimize_mirrors=0
+    for arg in "$@"; do
+        case "$arg" in
+        -m|--optimize-mirrors) optimize_mirrors=1 ;;
+        *)
+            echo "Usage: updatesys [-m|--optimize-mirrors]"
+            return 1
+            ;;
+        esac
+    done
+
     _detect_distro
     local start_time=$(date +%s)
     local packages_updated=0
@@ -888,19 +900,21 @@ updatesys() {
     echo -e "  ${_DIM}──────────────────────────────────────${_RC}"
     _sudo_auth || return 1
 
-    # Set step count based on distro
+    # Set step count based on distro (mirrors step only counted when -m is passed)
     _UI_STEP=0
     case "$_DISTRO" in
-    debian) _UI_TOTAL=5 ;; # mirrors, sync, upgrade, cleanup, flatpaks
-    arch)   _UI_TOTAL=6 ;; # mirrors, keyring, sync, upgrade (official+AUR), cleanup, flatpaks
-    *)      _UI_TOTAL=3 ;; # sync, upgrade, flatpaks
+    debian) _UI_TOTAL=$(( optimize_mirrors ? 5 : 4 )) ;; # [mirrors,] sync, upgrade, cleanup, flatpaks
+    arch)   _UI_TOTAL=$(( optimize_mirrors ? 6 : 5 )) ;; # [mirrors,] keyring, sync, upgrade (official+AUR), cleanup, flatpaks
+    *)      _UI_TOTAL=3 ;;                               # sync, upgrade, flatpaks
     esac
 
     case "$_DISTRO" in
     debian)
-        # Step 1: Optimise mirrors
-        _ui_step "Optimising mirrors"
-        _optimize_mirrors debian
+        # Step 1 (optional): Optimise mirrors
+        if [[ $optimize_mirrors -eq 1 ]]; then
+            _ui_step "Optimising mirrors"
+            _optimize_mirrors debian
+        fi
 
         # Step 2: Sync package lists
         _ui_step "Syncing package lists"
@@ -959,9 +973,11 @@ updatesys() {
             return 1
         fi
 
-        # Step 1: Optimise mirrors
-        _ui_step "Optimising mirrors"
-        _optimize_mirrors arch
+        # Step 1 (optional): Optimise mirrors
+        if [[ $optimize_mirrors -eq 1 ]]; then
+            _ui_step "Optimising mirrors"
+            _optimize_mirrors arch
+        fi
 
         # Step 2: Update keyring
         _ui_step "Updating keyring"

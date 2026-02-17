@@ -269,6 +269,15 @@ _require_cmd() {
     fi
 }
 
+# Pre-cache sudo credentials so password prompts don't interrupt spinners.
+# Usage: _sudo_auth || return 1
+_sudo_auth() {
+    if ! sudo -n true 2>/dev/null; then
+        echo -e "  ${_ARROW} sudo authentication required"
+        sudo -v || return 1
+    fi
+}
+
 # =========================
 # UI helpers (spinner, status messages)
 # =========================
@@ -546,6 +555,7 @@ installpkg() {
     echo ""
     echo -e "  ${_BOLD}Install Packages${_RC} ${_DIM}| ${_DISTRO} | log: ${_UPDATESYS_LOG}${_RC}"
     echo -e "  ${_DIM}──────────────────────────────────────${_RC}"
+    _sudo_auth || return 1
 
     _UI_STEP=0 _UI_TOTAL=2
 
@@ -623,6 +633,7 @@ removepkg() {
     echo ""
     echo -e "  ${_BOLD}Remove Packages${_RC} ${_DIM}| ${_DISTRO} | log: ${_UPDATESYS_LOG}${_RC}"
     echo -e "  ${_DIM}──────────────────────────────────────${_RC}"
+    _sudo_auth || return 1
 
     _UI_STEP=0 _UI_TOTAL=2
 
@@ -686,6 +697,7 @@ updatepkg() {
     echo ""
     echo -e "  ${_BOLD}Update Packages${_RC} ${_DIM}| ${_DISTRO} | log: ${_UPDATESYS_LOG}${_RC}"
     echo -e "  ${_DIM}──────────────────────────────────────${_RC}"
+    _sudo_auth || return 1
 
     _UI_STEP=0 _UI_TOTAL=3
 
@@ -874,6 +886,7 @@ updatesys() {
     echo ""
     echo -e "  ${_BOLD}System Update${_RC} ${_DIM}| ${distro_label} | ${packager_label} | log: ${_UPDATESYS_LOG}${_RC}"
     echo -e "  ${_DIM}──────────────────────────────────────${_RC}"
+    _sudo_auth || return 1
 
     # Set step count based on distro
     _UI_STEP=0
@@ -1162,6 +1175,7 @@ cleansys() {
     echo ""
     echo -e "  ${_BOLD}System Cleanup${_RC} ${_DIM}| ${_DISTRO} | log: ${_UPDATESYS_LOG}${_RC}"
     echo -e "  ${_DIM}──────────────────────────────────────${_RC}"
+    _sudo_auth || return 1
 
     _UI_STEP=0 _UI_TOTAL=5
 

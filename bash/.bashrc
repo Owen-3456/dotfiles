@@ -270,6 +270,86 @@ _require_cmd() {
 }
 
 # =========================
+# UI helpers (spinner, status messages)
+# =========================
+# Symbols
+_TICK='\033[0;32m\033[1m✓\033[0m'
+_CROSS='\033[0;31m\033[1m✗\033[0m'
+_ARROW='\033[0;36m\033[1m›\033[0m'
+_WARN_SYM='\033[1;33m\033[1m!\033[0m'
+_DIM='\033[2m'
+_BOLD='\033[1m'
+_CYAN='\033[0;36m'
+_GREEN='\033[0;32m'
+_RED='\033[0;31m'
+_YELLOW='\033[1;33m'
+_RC='\033[0m'
+
+_ui_ok()   { echo -e "       ${_TICK} $*"; }
+_ui_fail() { echo -e "       ${_CROSS} $*"; }
+_ui_info() { echo -e "       ${_ARROW} $*"; }
+_ui_warn() { echo -e "       ${_WARN_SYM} ${_YELLOW}$*${_RC}"; }
+
+_UI_STEP=0
+_UI_TOTAL=0
+_ui_step() {
+    ((_UI_STEP++)) || true
+    echo ""
+    echo -e "  ${_BOLD}${_CYAN}[${_UI_STEP}/${_UI_TOTAL}]${_RC} ${_BOLD}$*${_RC}"
+}
+
+# Spinner: braille dot animation running in background
+__spinner_pid=""
+_start_spinner() {
+    local msg="$1"
+    {
+        local frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+        local i=0
+        while true; do
+            printf "\r       \033[0;36m%s\033[0m \033[2m%s\033[0m" "${frames[$i]}" "$msg"
+            i=$(( (i + 1) % ${#frames[@]} ))
+            sleep 0.08
+        done
+    } &
+    __spinner_pid=$!
+}
+
+_stop_spinner() {
+    if [[ -n "$__spinner_pid" ]]; then
+        kill "$__spinner_pid" 2>/dev/null || true
+        wait "$__spinner_pid" 2>/dev/null || true
+        __spinner_pid=""
+    fi
+    printf "\r\033[K"
+}
+
+# Run a command silently with a spinner, logging output to file.
+# Usage: _run_with_spinner "message" command [args...]
+# On success: prints green tick + message. On failure: prints red cross + log hint.
+_run_with_spinner() {
+    local msg="$1"
+    shift
+    local log_file="${_UPDATESYS_LOG:-/tmp/updatesys-$$.log}"
+
+    _start_spinner "$msg"
+
+    local rc=0
+    echo "=== $(date '+%H:%M:%S') :: $msg ===" >> "$log_file"
+    "$@" >> "$log_file" 2>&1 || rc=$?
+
+    _stop_spinner
+
+    if [[ $rc -eq 0 ]]; then
+        _ui_ok "$msg"
+    else
+        _ui_fail "$msg"
+        echo -e "       ${_DIM}See log: ${log_file}${_RC}"
+    fi
+
+    return "$rc"
+}
+
+# =========================
 # Functions
 # =========================
 # Extract: unpack various archive formats into current directory
@@ -456,155 +536,294 @@ serve() {
 installpkg() {
     _require_cmd fzf || return 1
     _detect_distro
-    local selected
+    export _UPDATESYS_LOG
+    _UPDATESYS_LOG=$(mktemp /tmp/installpkg-XXXXXX.log)
+    trap '_stop_spinner; trap - INT RETURN; return 130' INT
+    trap '_stop_spinner; trap - INT RETURN' RETURN
+
+    local selected pkg_list pkg_count
+
+    echo ""
+    echo -e "  ${_BOLD}Install Packages${_RC} ${_DIM}| ${_DISTRO} | log: ${_UPDATESYS_LOG}${_RC}"
+    echo -e "  ${_DIM}──────────────────────────────────────${_RC}"
+
+    _UI_STEP=0 _UI_TOTAL=2
+
+    # Step 1: Select packages
+    _ui_step "Select packages"
     case "$_DISTRO" in
     debian)
-        local installer="sudo apt install -y"
-        command -v nala >/dev/null 2>&1 && installer="sudo nala install -y"
-        selected=$(apt-cache pkgnames 2>/dev/null | sort | fzf --multi --header="Type to search available packages (Debian)" \
+        selected=$(apt-cache pkgnames 2>/dev/null | sort | fzf --multi --header="Type to search available packages (TAB for multi-select)" \
             --preview 'apt show {1} 2>/dev/null | head -40' \
             --preview-window=right:60%:wrap)
-        [ -n "$selected" ] && echo "$selected" | xargs -r $installer
         ;;
     arch)
         if command -v yay >/dev/null 2>&1; then
-            selected=$(yay -Slq 2>/dev/null | fzf --multi --header="Type to search repos + AUR (Arch/yay)" \
+            selected=$(yay -Slq 2>/dev/null | fzf --multi --header="Type to search repos + AUR (TAB for multi-select)" \
                 --preview 'yay -Si {1} 2>/dev/null | head -40' \
                 --preview-window=right:60%:wrap)
-            [ -n "$selected" ] && echo "$selected" | xargs -r yay -S --noconfirm
         else
-            selected=$(pacman -Slq 2>/dev/null | fzf --multi --header="Type to search repos (Arch/pacman)" \
+            selected=$(pacman -Slq 2>/dev/null | fzf --multi --header="Type to search repos (TAB for multi-select)" \
                 --preview 'pacman -Si {1} 2>/dev/null | head -40' \
                 --preview-window=right:60%:wrap)
-            [ -n "$selected" ] && echo "$selected" | xargs -r sudo pacman -S --noconfirm
         fi
         ;;
     *)
-        echo "Error: Unsupported distribution for interactive install. Supported: Debian/Ubuntu and Arch."
+        _ui_fail "Unsupported distribution. Supported: Debian/Ubuntu and Arch."
         return 1
         ;;
     esac
+
+    if [ -z "$selected" ]; then
+        _ui_info "No packages selected"
+        return 0
+    fi
+
+    pkg_list=$(echo "$selected" | tr '\n' ' ')
+    pkg_count=$(echo "$selected" | wc -l)
+    _ui_ok "Selected $pkg_count package(s)"
+
+    # Step 2: Install
+    _ui_step "Installing packages"
+    local -a pkg_array
+    mapfile -t pkg_array <<< "$selected"
+    case "$_DISTRO" in
+    debian)
+        if command -v nala >/dev/null 2>&1; then
+            _run_with_spinner "Installing $pkg_count package(s)" sudo nala install -y "${pkg_array[@]}" || return 1
+        else
+            _run_with_spinner "Installing $pkg_count package(s)" sudo apt install -y "${pkg_array[@]}" || return 1
+        fi
+        ;;
+    arch)
+        if command -v yay >/dev/null 2>&1; then
+            _run_with_spinner "Installing $pkg_count package(s)" yay -S --noconfirm "${pkg_array[@]}" || return 1
+        else
+            _run_with_spinner "Installing $pkg_count package(s)" sudo pacman -S --noconfirm "${pkg_array[@]}" || return 1
+        fi
+        ;;
+    esac
+
+    echo ""
+    echo -e "  ${_GREEN}${_BOLD}  Done!${_RC} ${_DIM}Installed: ${pkg_list}${_RC}"
+    echo ""
 }
 
 # Removepkg: interactive package removal (fzf-based)
 removepkg() {
     _require_cmd fzf || return 1
     _detect_distro
-    local selected
+    export _UPDATESYS_LOG
+    _UPDATESYS_LOG=$(mktemp /tmp/removepkg-XXXXXX.log)
+    trap '_stop_spinner; trap - INT RETURN; return 130' INT
+    trap '_stop_spinner; trap - INT RETURN' RETURN
+
+    local selected pkg_list pkg_count
+
+    echo ""
+    echo -e "  ${_BOLD}Remove Packages${_RC} ${_DIM}| ${_DISTRO} | log: ${_UPDATESYS_LOG}${_RC}"
+    echo -e "  ${_DIM}──────────────────────────────────────${_RC}"
+
+    _UI_STEP=0 _UI_TOTAL=2
+
+    # Step 1: Select packages
+    _ui_step "Select packages"
     case "$_DISTRO" in
     debian)
-        selected=$(dpkg --get-selections 2>/dev/null | command grep -v deinstall | cut -f1 | sort | fzf --multi --header="Type to filter installed packages (Debian)" \
+        selected=$(dpkg --get-selections 2>/dev/null | command grep -v deinstall | cut -f1 | sort | fzf --multi --header="Type to filter installed packages (TAB for multi-select)" \
             --preview 'apt show {1} 2>/dev/null | head -20; echo "\n--- Reverse deps ---"; apt rdepends {1} 2>/dev/null | head -10' \
             --preview-window=right:60%:wrap)
-        [ -n "$selected" ] && echo "$selected" | xargs -r sudo apt remove -y
         ;;
     arch)
-        selected=$(pacman -Qq 2>/dev/null | fzf --multi --header="Type to filter installed packages (Arch)" \
+        selected=$(pacman -Qq 2>/dev/null | fzf --multi --header="Type to filter installed packages (TAB for multi-select)" \
             --preview 'pacman -Qi {1} 2>/dev/null | head -20; echo "\n--- Reverse deps ---"; pactree -r {1} 2>/dev/null | head -10' \
             --preview-window=right:60%:wrap)
-        [ -n "$selected" ] && echo "$selected" | xargs -r sudo pacman -R --noconfirm
         ;;
     *)
-        echo "Error: Unsupported distribution for interactive removal. Supported: Debian/Ubuntu and Arch."
+        _ui_fail "Unsupported distribution. Supported: Debian/Ubuntu and Arch."
         return 1
         ;;
     esac
+
+    if [ -z "$selected" ]; then
+        _ui_info "No packages selected"
+        return 0
+    fi
+
+    pkg_list=$(echo "$selected" | tr '\n' ' ')
+    pkg_count=$(echo "$selected" | wc -l)
+    _ui_ok "Selected $pkg_count package(s)"
+
+    # Step 2: Remove
+    _ui_step "Removing packages"
+    local -a pkg_array
+    mapfile -t pkg_array <<< "$selected"
+    case "$_DISTRO" in
+    debian)
+        _run_with_spinner "Removing $pkg_count package(s)" sudo apt remove -y "${pkg_array[@]}" || return 1
+        ;;
+    arch)
+        _run_with_spinner "Removing $pkg_count package(s)" sudo pacman -R --noconfirm "${pkg_array[@]}" || return 1
+        ;;
+    esac
+
+    echo ""
+    echo -e "  ${_GREEN}${_BOLD}  Done!${_RC} ${_DIM}Removed: ${pkg_list}${_RC}"
+    echo ""
 }
 
 # Updatepkg: interactive package update (fzf-based)
 updatepkg() {
     _require_cmd fzf || return 1
     _detect_distro
-    echo "Checking for updates..."
-    local upgradable selected pkg_list
+    export _UPDATESYS_LOG
+    _UPDATESYS_LOG=$(mktemp /tmp/updatepkg-XXXXXX.log)
+    trap '_stop_spinner; trap - INT RETURN; return 130' INT
+    trap '_stop_spinner; trap - INT RETURN' RETURN
 
+    local upgradable selected pkg_list pkg_count
+
+    echo ""
+    echo -e "  ${_BOLD}Update Packages${_RC} ${_DIM}| ${_DISTRO} | log: ${_UPDATESYS_LOG}${_RC}"
+    echo -e "  ${_DIM}──────────────────────────────────────${_RC}"
+
+    _UI_STEP=0 _UI_TOTAL=3
+
+    # Step 1: Sync package database
+    _ui_step "Syncing package database"
     case "$_DISTRO" in
     debian)
         if command -v nala >/dev/null 2>&1; then
-            sudo nala update >/dev/null 2>&1 || { echo "Failed to update package list"; return 1; }
+            _run_with_spinner "Updating package lists" sudo nala update || return 1
         else
-            sudo apt update >/dev/null 2>&1 || { echo "Failed to update package list"; return 1; }
+            _run_with_spinner "Updating package lists" sudo apt update || return 1
         fi
         upgradable=$(apt list --upgradable 2>/dev/null | command grep -v "^Listing" | cut -d/ -f1)
-        [ -z "$upgradable" ] && { echo "No updates available"; return 0; }
-        selected=$(echo "$upgradable" | fzf --multi --header="Select packages to update (TAB for multi-select, Debian)" \
-            --preview 'apt show {1} 2>/dev/null | head -40' \
-            --preview-window=right:60%:wrap)
-        if [ -n "$selected" ]; then
-            pkg_list=$(echo "$selected" | tr '\n' ' ')
-            echo "Installing: $pkg_list"
-            if command -v nala >/dev/null 2>&1; then
-                sudo nala install -y $pkg_list || { echo "Some packages failed to install"; return 1; }
-            else
-                sudo apt install -y $pkg_list || { echo "Some packages failed to install"; return 1; }
-            fi
-        fi
         ;;
     arch)
-        sudo pacman -Sy >/dev/null 2>&1 || { echo "Failed to update package database"; return 1; }
+        _run_with_spinner "Syncing package database" sudo pacman -Sy || return 1
         if command -v yay >/dev/null 2>&1; then
             upgradable=$(yay -Qu 2>/dev/null | awk '{print $1}')
-            [ -z "$upgradable" ] && { echo "No updates available"; return 0; }
-            selected=$(echo "$upgradable" | fzf --multi --header="Select packages to update (TAB for multi-select, Arch + AUR)" \
-                --preview 'yay -Si {1} 2>/dev/null | head -40' \
-                --preview-window=right:60%:wrap)
-            if [ -n "$selected" ]; then
-                pkg_list=$(echo "$selected" | tr '\n' ' ')
-                echo "Updating: $pkg_list"
-                yay -S --noconfirm $pkg_list || { echo "Some packages failed to update"; return 1; }
-            fi
         else
             upgradable=$(pacman -Qu 2>/dev/null | awk '{print $1}')
-            [ -z "$upgradable" ] && { echo "No updates available"; return 0; }
-            selected=$(echo "$upgradable" | fzf --multi --header="Select packages to update (TAB for multi-select, Arch)" \
-                --preview 'pacman -Si {1} 2>/dev/null | head -40' \
-                --preview-window=right:60%:wrap)
-            if [ -n "$selected" ]; then
-                pkg_list=$(echo "$selected" | tr '\n' ' ')
-                echo "Updating: $pkg_list"
-                sudo pacman -S --noconfirm $pkg_list || { echo "Some packages failed to update"; return 1; }
-            fi
         fi
         ;;
     *)
-        echo "Error: Unsupported distribution for interactive update. Supported: Debian/Ubuntu and Arch."
+        _ui_fail "Unsupported distribution. Supported: Debian/Ubuntu and Arch."
         return 1
         ;;
     esac
+
+    if [ -z "$upgradable" ]; then
+        _ui_ok "System already up to date"
+        echo ""
+        return 0
+    fi
+
+    local avail_count
+    avail_count=$(echo "$upgradable" | wc -l)
+    _ui_ok "$avail_count update(s) available"
+
+    # Step 2: Select packages
+    _ui_step "Select packages to update"
+    case "$_DISTRO" in
+    debian)
+        selected=$(echo "$upgradable" | fzf --multi --header="Select packages to update (TAB for multi-select)" \
+            --preview 'apt show {1} 2>/dev/null | head -40' \
+            --preview-window=right:60%:wrap)
+        ;;
+    arch)
+        if command -v yay >/dev/null 2>&1; then
+            selected=$(echo "$upgradable" | fzf --multi --header="Select packages to update (TAB for multi-select)" \
+                --preview 'yay -Si {1} 2>/dev/null | head -40' \
+                --preview-window=right:60%:wrap)
+        else
+            selected=$(echo "$upgradable" | fzf --multi --header="Select packages to update (TAB for multi-select)" \
+                --preview 'pacman -Si {1} 2>/dev/null | head -40' \
+                --preview-window=right:60%:wrap)
+        fi
+        ;;
+    esac
+
+    if [ -z "$selected" ]; then
+        _ui_info "No packages selected"
+        return 0
+    fi
+
+    pkg_list=$(echo "$selected" | tr '\n' ' ')
+    pkg_count=$(echo "$selected" | wc -l)
+    _ui_ok "Selected $pkg_count package(s)"
+
+    # Step 3: Update
+    _ui_step "Updating packages"
+    local -a pkg_array
+    mapfile -t pkg_array <<< "$selected"
+    case "$_DISTRO" in
+    debian)
+        if command -v nala >/dev/null 2>&1; then
+            _run_with_spinner "Updating $pkg_count package(s)" sudo nala install -y "${pkg_array[@]}" || return 1
+        else
+            _run_with_spinner "Updating $pkg_count package(s)" sudo apt install -y "${pkg_array[@]}" || return 1
+        fi
+        ;;
+    arch)
+        if command -v yay >/dev/null 2>&1; then
+            _run_with_spinner "Updating $pkg_count package(s)" yay -S --noconfirm "${pkg_array[@]}" || return 1
+        else
+            _run_with_spinner "Updating $pkg_count package(s)" sudo pacman -S --noconfirm "${pkg_array[@]}" || return 1
+        fi
+        ;;
+    esac
+
+    echo ""
+    echo -e "  ${_GREEN}${_BOLD}  Done!${_RC} ${_DIM}Updated: ${pkg_list}${_RC}"
+    echo ""
 }
 
-# Helper: optimize mirrors (arch/debian only)
+# Helper: optimise mirrors (arch/debian only)
 _optimize_mirrors() {
-    local YELLOW='\033[1;33m' RED='\033[0;31m' GREEN='\033[0;32m' RC='\033[0m'
+    local log_file="${_UPDATESYS_LOG:-/tmp/updatesys-$$.log}"
     case "$1" in
     arch)
         if command -v rate-mirrors >/dev/null 2>&1; then
-            echo -e "${YELLOW}Optimizing mirrors using rate-mirrors...${RC}"
             if [ -s "/etc/pacman.d/mirrorlist" ]; then
                 sudo cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
             fi
-            if ! sudo rate-mirrors --top-mirrors-number-to-retest=5 --disable-comments --save /etc/pacman.d/mirrorlist --allow-root arch >/dev/null 2>&1 || [ ! -s "/etc/pacman.d/mirrorlist" ]; then
-                echo -e "${RED}Rate-mirrors failed, restoring backup.${RC}"
+            _start_spinner "Optimising mirrors (rate-mirrors)"
+            local rc=0
+            echo "=== $(date '+%H:%M:%S') :: rate-mirrors ===" >> "$log_file"
+            sudo rate-mirrors --top-mirrors-number-to-retest=5 --disable-comments --save /etc/pacman.d/mirrorlist --allow-root arch >> "$log_file" 2>&1 || rc=$?
+            _stop_spinner
+            if [ $rc -ne 0 ] || [ ! -s "/etc/pacman.d/mirrorlist" ]; then
+                _ui_warn "Mirror optimisation failed, restoring backup"
                 sudo cp /etc/pacman.d/mirrorlist.bak /etc/pacman.d/mirrorlist
             else
-                echo -e "${GREEN}Mirror list optimized!${RC}"
+                _ui_ok "Mirrors optimised"
             fi
+        else
+            _ui_info "rate-mirrors not installed, skipping"
         fi
         ;;
     debian)
         if command -v nala >/dev/null 2>&1; then
-            echo -e "${YELLOW}Optimizing mirrors using nala fetch...${RC}"
             if [ -f "/etc/apt/sources.list.d/nala-sources.list" ]; then
                 sudo cp /etc/apt/sources.list.d/nala-sources.list /etc/apt/sources.list.d/nala-sources.list.bak
             fi
-            if ! sudo nala fetch --auto -y 2>/dev/null; then
-                echo -e "${RED}Nala fetch failed, restoring backup if available.${RC}"
+            _start_spinner "Optimising mirrors (nala fetch)"
+            local rc=0
+            echo "=== $(date '+%H:%M:%S') :: nala fetch ===" >> "$log_file"
+            sudo nala fetch --auto -y >> "$log_file" 2>&1 || rc=$?
+            _stop_spinner
+            if [ $rc -ne 0 ]; then
+                _ui_warn "Mirror optimisation failed, restoring backup"
                 if [ -f "/etc/apt/sources.list.d/nala-sources.list.bak" ]; then
                     sudo cp /etc/apt/sources.list.d/nala-sources.list.bak /etc/apt/sources.list.d/nala-sources.list
                 fi
             else
-                echo -e "${GREEN}Mirror list optimized!${RC}"
+                _ui_ok "Mirrors optimised"
             fi
+        else
+            _ui_info "nala not installed, skipping mirror optimisation"
         fi
         ;;
     esac
@@ -613,218 +832,297 @@ _optimize_mirrors() {
 # Helper: update flatpak packages if flatpak is installed
 _update_flatpaks() {
     if command -v flatpak >/dev/null 2>&1; then
-        local YELLOW='\033[1;33m' RC='\033[0m'
-        echo ""
-        echo -e "${YELLOW}Updating flatpak packages...${RC}"
-        flatpak update -y
+        _run_with_spinner "Updating flatpak packages" flatpak update -y
     fi
 }
 
 # Updatesys: update/upgrade system packages with optional cleanup
 # Supports: Debian/Ubuntu, Arch, Fedora, openSUSE, Alpine, Void, Solus
+# Output uses spinners and step headers for a clean, readable UI.
+# All command output is redirected to a log file; errors surface clearly.
 updatesys() {
     _detect_distro
-    echo "Starting system upgrade..."
-    local packages_updated=0
     local start_time=$(date +%s)
-    local CYAN='\033[0;36m' YELLOW='\033[1;33m' RED='\033[0;31m' GREEN='\033[0;32m' RC='\033[0m'
+    local packages_updated=0
+    export _UPDATESYS_LOG
+    _UPDATESYS_LOG=$(mktemp /tmp/updatesys-XXXXXX.log)
 
+    # Cleanup spinner on Ctrl+C or unexpected exit
+    trap '_stop_spinner; echo -e "\n       ${_CROSS} Interrupted"; echo -e "       ${_DIM}Log: ${_UPDATESYS_LOG}${_RC}"; trap - INT RETURN; return 130' INT
+    trap '_stop_spinner; trap - INT RETURN' RETURN
+
+    # Determine distro label and package manager
+    local distro_label packager_label
     case "$_DISTRO" in
-    debian)
-        echo "Debian-based system detected"
-        _optimize_mirrors debian
-        local PACKAGER="apt" apt_opts=""
-        if command -v nala >/dev/null 2>&1; then
-            PACKAGER="nala"
-            echo -e "${CYAN}Using nala for package management${RC}"
-        else
-            echo "Using apt for package management"
-        fi
-
-        if [ "$PACKAGER" = "nala" ]; then
-            sudo nala update || { echo "Failed to update package list"; return 1; }
-        else
-            apt_opts="-o Acquire::Queue-Mode=host -o APT::Acquire::Retries=3"
-            sudo apt $apt_opts update || { echo "Failed to update package list"; return 1; }
-        fi
-
-        local upgradable_list=$(apt list --upgradable 2>/dev/null | command grep -v "^Listing")
-        packages_updated=$(echo "$upgradable_list" | command grep -c '^' 2>/dev/null || echo 0)
-
-        if [ "$packages_updated" -eq 0 ]; then
-            echo "No updates available. System is already up to date."
-            _update_flatpaks
-            return 0
-        fi
-
-        echo "Upgrading $packages_updated packages..."
-        if [ "$PACKAGER" = "nala" ]; then
-            sudo nala upgrade -y || { echo "Failed to upgrade packages"; return 1; }
-            sudo nala autopurge -y
-            sudo nala clean
-        else
-            sudo apt $apt_opts upgrade -y || { echo "Failed to upgrade packages"; return 1; }
-            sudo apt autoremove -y
-            sudo apt autoclean
-        fi
-
-        _update_flatpaks
-
-        if [ -f /var/run/reboot-required ]; then
-            echo ""
-            echo -e "${YELLOW}WARNING: System reboot is required to complete the upgrade.${RC}"
-        fi
-        ;;
-
-    arch)
-        echo "Arch-based system detected"
-        _optimize_mirrors arch
-        if ! command -v yay >/dev/null 2>&1; then
-            echo -e "${RED}Error: yay is required but not installed.${RC}"
-            echo "Install yay first: https://github.com/Jguer/yay"
-            return 1
-        fi
-
-        echo -e "${CYAN}Using yay for package management (pacman + AUR)${RC}"
-
-        echo "Updating archlinux-keyring..."
-        sudo pacman -Sy --noconfirm --needed archlinux-keyring || { echo "Failed to update keyring"; return 1; }
-
-        local upgradable_list=$(yay -Qu 2>/dev/null)
-        packages_updated=$(echo "$upgradable_list" | command grep -c '^' 2>/dev/null || echo 0)
-
-        if [ "$packages_updated" -eq 0 ]; then
-            echo "No updates available. System is already up to date."
-            _update_flatpaks
-            return 0
-        fi
-
-        echo "Upgrading $packages_updated packages..."
-
-        if ! command grep -q "^ParallelDownloads" /etc/pacman.conf 2>/dev/null; then
-            echo "Note: Enable ParallelDownloads in /etc/pacman.conf for faster updates"
-        fi
-
-        echo "Upgrading official repository packages..."
-        sudo pacman -Su --noconfirm || { echo -e "${RED}Failed to upgrade official packages${RC}"; return 1; }
-
-        local aur_updates
-        aur_updates=$(yay -Qua 2>/dev/null)
-        if [ -n "$aur_updates" ]; then
-            local aur_list
-            aur_list=$(echo "$aur_updates" | awk '{print $1}')
-            for pkg in $aur_list; do
-                local cache_dir="$HOME/.cache/yay/$pkg"
-                if [ -d "$cache_dir" ]; then
-                    echo "Cleaning yay cache for $pkg"
-                    rm -rf "$cache_dir" || true
-                fi
-            done
-
-            echo ""
-            echo "Upgrading AUR packages..."
-            if ! yay -Sua --noconfirm; then
-                echo -e "${YELLOW}Some AUR packages may have failed to update${RC}"
-            fi
-        fi
-
-        echo "Cleaning package cache..."
-        yay -Sc --noconfirm 2>/dev/null || true
-        paccache -rk 2 2>/dev/null || true
-
-        local orphans=$(pacman -Qtdq 2>/dev/null)
-        if [ -n "$orphans" ]; then
-            echo "Removing orphaned packages..."
-            echo "$orphans" | sudo pacman -Rns --noconfirm - 2>/dev/null && echo "Orphaned packages removed" || echo "Some packages could not be removed"
-        fi
-
-        _update_flatpaks
-        ;;
-
-    fedora)
-        echo "Fedora/RHEL-based system detected"
-        echo -e "${CYAN}Using dnf for package management${RC}"
-        echo "Updating system packages..."
-        sudo dnf update -y || { echo "Failed to update packages"; return 1; }
-        echo "Cleaning package cache..."
-        sudo dnf autoremove -y
-        sudo dnf clean all
-        _update_flatpaks
-        ;;
-
-    opensuse)
-        echo "openSUSE-based system detected"
-        echo -e "${CYAN}Using zypper for package management${RC}"
-        echo "Refreshing repositories..."
-        sudo zypper ref || { echo "Failed to refresh repositories"; return 1; }
-        echo "Performing distribution upgrade..."
-        sudo zypper --non-interactive dup || { echo "Failed to upgrade packages"; return 1; }
-        echo "Cleaning package cache..."
-        sudo zypper clean
-        _update_flatpaks
-        ;;
-
-    alpine)
-        echo "Alpine Linux detected"
-        echo -e "${CYAN}Using apk for package management${RC}"
-        echo "Updating package index..."
-        sudo apk update || { echo "Failed to update package index"; return 1; }
-        echo "Upgrading packages..."
-        sudo apk upgrade || { echo "Failed to upgrade packages"; return 1; }
-        _update_flatpaks
-        ;;
-
-    void)
-        echo "Void Linux detected"
-        echo -e "${CYAN}Using xbps for package management${RC}"
-        echo "Syncing repositories..."
-        sudo xbps-install -S || { echo "Failed to sync repositories"; return 1; }
-        echo "Upgrading packages..."
-        sudo xbps-install -yu || { echo "Failed to upgrade packages"; return 1; }
-        _update_flatpaks
-        ;;
-
-    solus)
-        echo "Solus detected"
-        echo -e "${CYAN}Using eopkg for package management${RC}"
-        echo "Updating repository..."
-        sudo eopkg -y update-repo || { echo "Failed to update repository"; return 1; }
-        echo "Upgrading packages..."
-        sudo eopkg -y upgrade || { echo "Failed to upgrade packages"; return 1; }
-        _update_flatpaks
-        ;;
-
+    debian)   distro_label="Debian/Ubuntu"; packager_label="apt"
+              command -v nala >/dev/null 2>&1 && packager_label="nala" ;;
+    arch)     distro_label="Arch Linux"; packager_label="pacman"
+              command -v yay >/dev/null 2>&1 && packager_label="yay" ;;
+    fedora)   distro_label="Fedora/RHEL"; packager_label="dnf" ;;
+    opensuse) distro_label="openSUSE"; packager_label="zypper" ;;
+    alpine)   distro_label="Alpine"; packager_label="apk" ;;
+    void)     distro_label="Void Linux"; packager_label="xbps" ;;
+    solus)    distro_label="Solus"; packager_label="eopkg" ;;
     *)
-        echo -e "${RED}Error: Unknown distribution.${RC}"
-        echo "This function supports:"
-        echo "  - Debian/Ubuntu (apt/nala)"
-        echo "  - Arch Linux (pacman/yay)"
-        echo "  - Fedora/RHEL (dnf)"
-        echo "  - openSUSE (zypper)"
-        echo "  - Alpine (apk)"
-        echo "  - Void Linux (xbps)"
-        echo "  - Solus (eopkg)"
+        _ui_fail "Unknown distribution"
+        _ui_info "Supported: Debian/Ubuntu, Arch, Fedora, openSUSE, Alpine, Void, Solus"
         return 1
         ;;
     esac
 
-    # Calculate duration
+    # Header
+    echo ""
+    echo -e "  ${_BOLD}System Update${_RC} ${_DIM}| ${distro_label} | ${packager_label} | log: ${_UPDATESYS_LOG}${_RC}"
+    echo -e "  ${_DIM}──────────────────────────────────────${_RC}"
+
+    # Set step count based on distro
+    _UI_STEP=0
+    case "$_DISTRO" in
+    debian) _UI_TOTAL=5 ;; # mirrors, sync, upgrade, cleanup, flatpaks
+    arch)   _UI_TOTAL=6 ;; # mirrors, keyring, sync, upgrade (official+AUR), cleanup, flatpaks
+    *)      _UI_TOTAL=3 ;; # sync, upgrade, flatpaks
+    esac
+
+    case "$_DISTRO" in
+    debian)
+        # Step 1: Optimise mirrors
+        _ui_step "Optimising mirrors"
+        _optimize_mirrors debian
+
+        # Step 2: Sync package lists
+        _ui_step "Syncing package lists"
+        if [ "$packager_label" = "nala" ]; then
+            _run_with_spinner "Updating package lists" sudo nala update || return 1
+        else
+            _run_with_spinner "Updating package lists" sudo apt -o Acquire::Queue-Mode=host -o APT::Acquire::Retries=3 update || return 1
+        fi
+
+        # Check for available updates
+        local upgradable_list=$(apt list --upgradable 2>/dev/null | command grep -v "^Listing")
+        packages_updated=$(echo "$upgradable_list" | command grep -c '^' 2>/dev/null || echo 0)
+
+        if [ "$packages_updated" -eq 0 ]; then
+            _ui_info "No updates available"
+        fi
+
+        # Step 3: Upgrade packages
+        _ui_step "Upgrading packages"
+        if [ "$packages_updated" -eq 0 ]; then
+            _ui_ok "System already up to date"
+        elif [ "$packager_label" = "nala" ]; then
+            _run_with_spinner "Upgrading $packages_updated packages" sudo nala upgrade -y || return 1
+        else
+            _run_with_spinner "Upgrading $packages_updated packages" sudo apt -o Acquire::Queue-Mode=host -o APT::Acquire::Retries=3 upgrade -y || return 1
+        fi
+
+        # Step 4: Cleanup
+        _ui_step "Cleaning up"
+        if [ "$packager_label" = "nala" ]; then
+            _run_with_spinner "Removing unused packages" sudo nala autopurge -y
+            _run_with_spinner "Cleaning package cache" sudo nala clean
+        else
+            _run_with_spinner "Removing unused packages" sudo apt autoremove -y
+            _run_with_spinner "Cleaning package cache" sudo apt autoclean
+        fi
+
+        # Step 5: Flatpaks
+        _ui_step "Updating flatpaks"
+        _update_flatpaks
+        if ! command -v flatpak >/dev/null 2>&1; then
+            _ui_info "Flatpak not installed, skipping"
+        fi
+
+        # Reboot check
+        if [ -f /var/run/reboot-required ]; then
+            echo ""
+            _ui_warn "System reboot is required to complete the upgrade"
+        fi
+        ;;
+
+    arch)
+        if ! command -v yay >/dev/null 2>&1; then
+            _ui_fail "yay is required but not installed"
+            _ui_info "Install yay first: https://github.com/Jguer/yay"
+            return 1
+        fi
+
+        # Step 1: Optimise mirrors
+        _ui_step "Optimising mirrors"
+        _optimize_mirrors arch
+
+        # Step 2: Update keyring
+        _ui_step "Updating keyring"
+        _run_with_spinner "Updating archlinux-keyring" sudo pacman -Sy --noconfirm --needed archlinux-keyring || return 1
+
+        # Check for available updates
+        local upgradable_list=$(yay -Qu 2>/dev/null)
+        packages_updated=$(echo "$upgradable_list" | command grep -c '^' 2>/dev/null || echo 0)
+
+        # Step 3: Check updates
+        _ui_step "Checking for updates"
+        if [ "$packages_updated" -eq 0 ]; then
+            _ui_ok "System already up to date"
+        else
+            _ui_ok "$packages_updated updates available"
+
+            if ! command grep -q "^ParallelDownloads" /etc/pacman.conf 2>/dev/null; then
+                _ui_info "Tip: Enable ParallelDownloads in /etc/pacman.conf for faster updates"
+            fi
+        fi
+
+        # Step 4: Upgrade packages
+        _ui_step "Upgrading packages"
+        if [ "$packages_updated" -eq 0 ]; then
+            _ui_ok "Nothing to upgrade"
+        else
+            _run_with_spinner "Upgrading official packages" sudo pacman -Su --noconfirm || return 1
+
+            # AUR packages
+            local aur_updates
+            aur_updates=$(yay -Qua 2>/dev/null)
+            if [ -n "$aur_updates" ]; then
+                # Clean stale yay build cache for listed packages
+                local aur_list
+                aur_list=$(echo "$aur_updates" | awk '{print $1}')
+                for pkg in $aur_list; do
+                    local cache_dir="$HOME/.cache/yay/$pkg"
+                    if [ -d "$cache_dir" ]; then
+                        rm -rf "$cache_dir" 2>/dev/null || true
+                    fi
+                done
+
+                local aur_count aur_rc=0
+                aur_count=$(echo "$aur_updates" | wc -l)
+                _start_spinner "Upgrading $aur_count AUR packages"
+                echo "=== $(date '+%H:%M:%S') :: yay -Sua ===" >> "$_UPDATESYS_LOG"
+                yay -Sua --noconfirm >> "$_UPDATESYS_LOG" 2>&1 || aur_rc=$?
+                _stop_spinner
+                if [ $aur_rc -eq 0 ]; then
+                    _ui_ok "Upgraded $aur_count AUR packages"
+                else
+                    _ui_warn "Some AUR packages may have failed (see log)"
+                fi
+            else
+                _ui_ok "No AUR updates"
+            fi
+        fi
+
+        # Step 5: Cleanup
+        _ui_step "Cleaning up"
+        _run_with_spinner "Cleaning package cache" bash -c 'yay -Sc --noconfirm 2>/dev/null; paccache -rk 2 2>/dev/null; true'
+
+        local orphans=$(pacman -Qtdq 2>/dev/null)
+        if [ -n "$orphans" ]; then
+            _start_spinner "Removing orphaned packages"
+            echo "$orphans" | sudo pacman -Rns --noconfirm - >> "$_UPDATESYS_LOG" 2>&1
+            local rc=$?
+            _stop_spinner
+            if [ $rc -eq 0 ]; then
+                _ui_ok "Orphaned packages removed"
+            else
+                _ui_warn "Some orphans could not be removed"
+            fi
+        else
+            _ui_ok "No orphaned packages"
+        fi
+
+        # Step 6: Flatpaks
+        _ui_step "Updating flatpaks"
+        _update_flatpaks
+        if ! command -v flatpak >/dev/null 2>&1; then
+            _ui_info "Flatpak not installed, skipping"
+        fi
+        ;;
+
+    fedora)
+        _ui_step "Upgrading packages"
+        _run_with_spinner "Updating system packages" sudo dnf update -y || return 1
+
+        _ui_step "Cleaning up"
+        _run_with_spinner "Removing unused packages" sudo dnf autoremove -y
+        _run_with_spinner "Cleaning package cache" sudo dnf clean all
+
+        _ui_step "Updating flatpaks"
+        _update_flatpaks
+        if ! command -v flatpak >/dev/null 2>&1; then
+            _ui_info "Flatpak not installed, skipping"
+        fi
+        ;;
+
+    opensuse)
+        _ui_step "Syncing repositories"
+        _run_with_spinner "Refreshing repositories" sudo zypper ref || return 1
+
+        _ui_step "Upgrading packages"
+        _run_with_spinner "Performing distribution upgrade" sudo zypper --non-interactive dup || return 1
+        _run_with_spinner "Cleaning package cache" sudo zypper clean
+
+        _ui_step "Updating flatpaks"
+        _update_flatpaks
+        if ! command -v flatpak >/dev/null 2>&1; then
+            _ui_info "Flatpak not installed, skipping"
+        fi
+        ;;
+
+    alpine)
+        _ui_step "Syncing repositories"
+        _run_with_spinner "Updating package index" sudo apk update || return 1
+
+        _ui_step "Upgrading packages"
+        _run_with_spinner "Upgrading packages" sudo apk upgrade || return 1
+
+        _ui_step "Updating flatpaks"
+        _update_flatpaks
+        if ! command -v flatpak >/dev/null 2>&1; then
+            _ui_info "Flatpak not installed, skipping"
+        fi
+        ;;
+
+    void)
+        _ui_step "Syncing repositories"
+        _run_with_spinner "Syncing repositories" sudo xbps-install -S || return 1
+
+        _ui_step "Upgrading packages"
+        _run_with_spinner "Upgrading packages" sudo xbps-install -yu || return 1
+
+        _ui_step "Updating flatpaks"
+        _update_flatpaks
+        if ! command -v flatpak >/dev/null 2>&1; then
+            _ui_info "Flatpak not installed, skipping"
+        fi
+        ;;
+
+    solus)
+        _ui_step "Syncing repositories"
+        _run_with_spinner "Updating repository" sudo eopkg -y update-repo || return 1
+
+        _ui_step "Upgrading packages"
+        _run_with_spinner "Upgrading packages" sudo eopkg -y upgrade || return 1
+
+        _ui_step "Updating flatpaks"
+        _update_flatpaks
+        if ! command -v flatpak >/dev/null 2>&1; then
+            _ui_info "Flatpak not installed, skipping"
+        fi
+        ;;
+    esac
+
+    # Summary
     local end_time=$(date +%s)
     local duration=$((end_time - start_time))
     local minutes=$((duration / 60))
     local seconds=$((duration % 60))
 
-    # Success summary
     echo ""
-    echo -e "${GREEN}====================================${RC}"
-    echo -e "${GREEN}System upgrade completed successfully!${RC}"
-    echo -e "${GREEN}====================================${RC}"
+    echo -e "  ${_GREEN}${_BOLD}──────────────────────────────────────${_RC}"
+    echo -e "  ${_GREEN}${_BOLD}  All done!${_RC}  ${_DIM}Completed in ${minutes}m ${seconds}s${_RC}"
+    echo -e "  ${_GREEN}${_BOLD}──────────────────────────────────────${_RC}"
+    echo ""
     if [ "$packages_updated" -gt 0 ]; then
-        echo "Packages processed: $packages_updated"
+        echo -e "    ${_TICK} ${_DIM}Packages processed: ${packages_updated}${_RC}"
     fi
-    echo "Time taken: ${minutes}m ${seconds}s"
-    echo "Kernel: $(uname -r)"
-    echo "Uptime: $(uptime -p)"
+    echo -e "    ${_TICK} ${_DIM}Kernel: $(uname -r)${_RC}"
+    echo -e "    ${_TICK} ${_DIM}Uptime: $(uptime -p)${_RC}"
 
     # Show remaining updates
     local updates=0
@@ -839,104 +1137,132 @@ updatesys() {
     esac
 
     if [ "$updates" -gt 0 ]; then
-        echo -e "${YELLOW}Pending updates: $updates${RC}"
+        echo -e "    ${_WARN_SYM} ${_YELLOW}Pending updates: $updates${_RC}"
     else
-        echo -e "${GREEN}System is up to date${RC}"
+        echo -e "    ${_TICK} ${_GREEN}System is up to date${_RC}"
     fi
+    echo -e "    ${_DIM}Full log: ${_UPDATESYS_LOG}${_RC}"
+    echo ""
 }
 
 # Cleansys: perform system cleanup (cache, logs, orphans, trash)
 # Supports: Debian/Ubuntu (nala/apt), Arch (yay/pacman)
 cleansys() {
     _detect_distro
-    echo "Starting system cleanup..."
     local start_time=$(date +%s)
-    local YELLOW='\033[1;33m' RED='\033[0;31m' GREEN='\033[0;32m' RC='\033[0m'
+    export _UPDATESYS_LOG
+    _UPDATESYS_LOG=$(mktemp /tmp/cleansys-XXXXXX.log)
+    trap '_stop_spinner; trap - INT RETURN; return 130' INT
+    trap '_stop_spinner; trap - INT RETURN' RETURN
 
-    # Package manager cleanup
-    echo -e "${YELLOW}Cleaning package manager cache...${RC}"
+    # Get disk usage before cleanup
+    local disk_before
+    disk_before=$(df --output=used / 2>/dev/null | tail -1 | tr -d ' ')
+
+    echo ""
+    echo -e "  ${_BOLD}System Cleanup${_RC} ${_DIM}| ${_DISTRO} | log: ${_UPDATESYS_LOG}${_RC}"
+    echo -e "  ${_DIM}──────────────────────────────────────${_RC}"
+
+    _UI_STEP=0 _UI_TOTAL=5
+
+    # Step 1: Package manager cleanup
+    _ui_step "Package manager cache"
     case "$_DISTRO" in
     debian)
         if command -v nala >/dev/null 2>&1; then
-            sudo nala clean
-            sudo nala autoremove -y
+            _run_with_spinner "Cleaning package cache" sudo nala clean
+            _run_with_spinner "Removing unused packages" sudo nala autoremove -y
         else
-            sudo apt-get clean
-            sudo apt-get autoremove -y
+            _run_with_spinner "Cleaning package cache" sudo apt-get clean
+            _run_with_spinner "Removing unused packages" sudo apt-get autoremove -y
         fi
-        echo "APT cache size: $(sudo du -sh /var/cache/apt 2>/dev/null | cut -f1)"
         ;;
     arch)
         if command -v yay >/dev/null 2>&1; then
-            yay -Sc --noconfirm
+            _run_with_spinner "Cleaning package cache" yay -Sc --noconfirm
         else
-            sudo pacman -Sc --noconfirm
+            _run_with_spinner "Cleaning package cache" sudo pacman -Sc --noconfirm
         fi
+
         local orphans=$(pacman -Qtdq 2>/dev/null)
         if [ -n "$orphans" ]; then
-            echo "Removing orphaned packages..."
-            echo "$orphans" | sudo pacman -Rns --noconfirm - 2>/dev/null || true
+            _start_spinner "Removing orphaned packages"
+            echo "$orphans" | sudo pacman -Rns --noconfirm - >> "$_UPDATESYS_LOG" 2>&1
+            local rc=$?
+            _stop_spinner
+            if [ $rc -eq 0 ]; then
+                _ui_ok "Orphaned packages removed"
+            else
+                _ui_warn "Some orphans could not be removed"
+            fi
+        else
+            _ui_ok "No orphaned packages"
         fi
-        paccache -rk 2 2>/dev/null || true
+
+        _run_with_spinner "Pruning old package versions" bash -c 'paccache -rk 2 2>/dev/null; true'
         ;;
     *)
-        echo -e "${RED}Unsupported distribution for package cleanup. Supported: Debian/Ubuntu and Arch.${RC}"
+        _ui_fail "Unsupported distribution. Supported: Debian/Ubuntu and Arch."
         return 1
         ;;
     esac
 
-    # Common cleanup: temp files
-    echo -e "${YELLOW}Cleaning temporary files...${RC}"
-    if [ -d /var/tmp ]; then
-        sudo find /var/tmp -type f -atime +5 -delete 2>/dev/null || true
-    fi
-    if [ -d /tmp ]; then
-        sudo find /tmp -type f -atime +5 -delete 2>/dev/null || true
-    fi
+    # Step 2: Temporary files
+    _ui_step "Temporary files"
+    _run_with_spinner "Cleaning /tmp and /var/tmp" bash -c '
+        [ -d /var/tmp ] && sudo find /var/tmp -type f -atime +5 -delete 2>/dev/null
+        [ -d /tmp ] && sudo find /tmp -type f -atime +5 -delete 2>/dev/null
+        true'
 
-    # Truncate old log files
-    echo -e "${YELLOW}Truncating old log files...${RC}"
-    if [ -d /var/log ]; then
-        sudo find /var/log -type f -name "*.log" -exec truncate -s 0 {} \; 2>/dev/null || true
-    fi
-
-    # Clean journald logs (systemd systems)
+    # Step 3: Logs
+    _ui_step "System logs"
+    _run_with_spinner "Truncating old log files" bash -c '
+        [ -d /var/log ] && sudo find /var/log -type f -name "*.log" -exec truncate -s 0 {} \; 2>/dev/null
+        true'
     if command -v journalctl >/dev/null 2>&1; then
-        echo -e "${YELLOW}Vacuuming journald logs (keeping 3 days)...${RC}"
-        sudo journalctl --vacuum-time=3d 2>/dev/null || true
+        _run_with_spinner "Vacuuming journald logs (keeping 3 days)" sudo journalctl --vacuum-time=3d
     fi
 
-    # Clean user cache and trash
-    echo -e "${YELLOW}Cleaning user cache (files older than 5 days)...${RC}"
-    if [ -d "$HOME/.cache" ]; then
-        find "$HOME/.cache/" -type f -atime +5 -delete 2>/dev/null || true
-    fi
+    # Step 4: User cache and trash
+    _ui_step "User cache and trash"
+    _run_with_spinner "Cleaning user cache (files older than 5 days)" bash -c "
+        [ -d \"$HOME/.cache\" ] && find \"$HOME/.cache/\" -type f -atime +5 -delete 2>/dev/null
+        true"
+    _run_with_spinner "Emptying trash" bash -c "
+        [ -d \"$HOME/.local/share/Trash\" ] && find \"$HOME/.local/share/Trash\" -mindepth 1 -delete 2>/dev/null
+        true"
 
-    echo -e "${YELLOW}Emptying trash...${RC}"
-    if [ -d "$HOME/.local/share/Trash" ]; then
-        find "$HOME/.local/share/Trash" -mindepth 1 -delete 2>/dev/null || true
-    fi
-
-    # Clean flatpak unused runtimes
+    # Step 5: Flatpak cleanup
+    _ui_step "Flatpak cleanup"
     if command -v flatpak >/dev/null 2>&1; then
-        echo -e "${YELLOW}Removing unused flatpak runtimes...${RC}"
-        flatpak uninstall --unused -y 2>/dev/null || true
+        _run_with_spinner "Removing unused flatpak runtimes" bash -c 'flatpak uninstall --unused -y 2>/dev/null; true'
+    else
+        _ui_info "Flatpak not installed, skipping"
     fi
 
-    # Calculate duration
+    # Summary
     local end_time=$(date +%s)
     local duration=$((end_time - start_time))
+    local disk_after
+    disk_after=$(df --output=used / 2>/dev/null | tail -1 | tr -d ' ')
+    local freed=0
+    if [ -n "$disk_before" ] && [ -n "$disk_after" ] && [ "$disk_before" -gt "$disk_after" ]; then
+        freed=$(( (disk_before - disk_after) / 1024 ))
+    fi
 
     echo ""
-    echo -e "${GREEN}====================================${RC}"
-    echo -e "${GREEN}System cleanup completed!${RC}"
-    echo -e "${GREEN}====================================${RC}"
-    echo "Time taken: ${duration}s"
-
-    # Show disk usage
+    echo -e "  ${_GREEN}${_BOLD}──────────────────────────────────────${_RC}"
+    echo -e "  ${_GREEN}${_BOLD}  All clean!${_RC}  ${_DIM}Completed in ${duration}s${_RC}"
+    echo -e "  ${_GREEN}${_BOLD}──────────────────────────────────────${_RC}"
     echo ""
-    echo "Disk usage:"
-    df -h / | tail -1 | awk '{print "  Root: " $3 " used / " $2 " total (" $5 " used)"}'
+    if [ "$freed" -gt 0 ]; then
+        echo -e "    ${_TICK} ${_DIM}Freed: ~${freed}MB${_RC}"
+    fi
+    local disk_info
+    disk_info=$(df -h / | tail -1 | awk '{print $3 " used / " $2 " total (" $5 ")"}')
+    echo -e "    ${_TICK} ${_DIM}Disk: ${disk_info}${_RC}"
+    echo -e "    ${_DIM}Full log: ${_UPDATESYS_LOG}${_RC}"
+    echo ""
 }
 
 # Fzfkill: interactively search and kill processes with fzf

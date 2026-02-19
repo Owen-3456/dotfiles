@@ -600,16 +600,16 @@ installpkg() {
     case "$_DISTRO" in
     debian)
         if command -v nala >/dev/null 2>&1; then
-            _run_with_spinner "Installing $pkg_count package(s)" sudo nala install -y "${pkg_array[@]}" || return 1
+            _run_with_spinner "Installing $pkg_list" sudo nala install -y "${pkg_array[@]}" || return 1
         else
-            _run_with_spinner "Installing $pkg_count package(s)" sudo apt install -y "${pkg_array[@]}" || return 1
+            _run_with_spinner "Installing $pkg_list" sudo apt install -y "${pkg_array[@]}" || return 1
         fi
         ;;
     arch)
         if command -v yay >/dev/null 2>&1; then
-            _run_with_spinner "Installing $pkg_count package(s)" yay -S --noconfirm "${pkg_array[@]}" || return 1
+            _run_with_spinner "Installing $pkg_list" yay -S --noconfirm "${pkg_array[@]}" || return 1
         else
-            _run_with_spinner "Installing $pkg_count package(s)" sudo pacman -S --noconfirm "${pkg_array[@]}" || return 1
+            _run_with_spinner "Installing $pkg_list" sudo pacman -S --noconfirm "${pkg_array[@]}" || return 1
         fi
         ;;
     esac
@@ -671,10 +671,10 @@ removepkg() {
     mapfile -t pkg_array <<< "$selected"
     case "$_DISTRO" in
     debian)
-        _run_with_spinner "Removing $pkg_count package(s)" sudo apt remove -y "${pkg_array[@]}" || return 1
+        _run_with_spinner "Removing $pkg_list" sudo apt remove -y "${pkg_array[@]}" || return 1
         ;;
     arch)
-        _run_with_spinner "Removing $pkg_count package(s)" sudo pacman -R --noconfirm "${pkg_array[@]}" || return 1
+        _run_with_spinner "Removing $pkg_list" sudo pacman -R --noconfirm "${pkg_array[@]}" || return 1
         ;;
     esac
 
@@ -773,16 +773,16 @@ updatepkg() {
     case "$_DISTRO" in
     debian)
         if command -v nala >/dev/null 2>&1; then
-            _run_with_spinner "Updating $pkg_count package(s)" sudo nala install -y "${pkg_array[@]}" || return 1
+            _run_with_spinner "Updating $pkg_list" sudo nala install -y "${pkg_array[@]}" || return 1
         else
-            _run_with_spinner "Updating $pkg_count package(s)" sudo apt install -y "${pkg_array[@]}" || return 1
+            _run_with_spinner "Updating $pkg_list" sudo apt install -y "${pkg_array[@]}" || return 1
         fi
         ;;
     arch)
         if command -v yay >/dev/null 2>&1; then
-            _run_with_spinner "Updating $pkg_count package(s)" yay -S --noconfirm "${pkg_array[@]}" || return 1
+            _run_with_spinner "Updating $pkg_list" yay -S --noconfirm "${pkg_array[@]}" || return 1
         else
-            _run_with_spinner "Updating $pkg_count package(s)" sudo pacman -S --noconfirm "${pkg_array[@]}" || return 1
+            _run_with_spinner "Updating $pkg_list" sudo pacman -S --noconfirm "${pkg_array[@]}" || return 1
         fi
         ;;
     esac

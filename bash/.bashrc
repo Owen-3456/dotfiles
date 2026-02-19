@@ -1402,6 +1402,148 @@ weather() {
     curl -s "wttr.in/${1:-}"
 }
 
+# Sysinfo: quick system health dashboard
+sysinfo() {
+    echo ""
+    echo -e "  ${_BOLD}System Health${_RC}"
+    echo -e "  ${_DIM}──────────────────────────────────────${_RC}"
+
+    # --- Host & Kernel ---
+    echo ""
+    echo -e "  ${_BOLD}${_CYAN}Host${_RC}"
+    echo -e "    ${_DIM}Hostname:${_RC}  $(hostname)"
+    echo -e "    ${_DIM}Kernel:${_RC}    $(uname -r)"
+    echo -e "    ${_DIM}Uptime:${_RC}    $(uptime -p | sed 's/^up //')"
+
+    # --- CPU ---
+    echo ""
+    echo -e "  ${_BOLD}${_CYAN}CPU${_RC}"
+    local cpu_model load1 load5 load15 cores usage_pct
+    cpu_model=$(awk -F': ' '/^model name/{print $2; exit}' /proc/cpuinfo 2>/dev/null || echo "Unknown")
+    cores=$(nproc 2>/dev/null || echo 1)
+    read -r load1 load5 load15 _ < /proc/loadavg
+    usage_pct=$(awk "BEGIN {printf \"%.0f\", ($load1 / $cores) * 100}")
+    echo -e "    ${_DIM}Model:${_RC}     ${cpu_model}"
+    echo -e "    ${_DIM}Cores:${_RC}     ${cores}"
+    local load_color="${_GREEN}"
+    if [ "$usage_pct" -ge 90 ]; then load_color="${_RED}"
+    elif [ "$usage_pct" -ge 70 ]; then load_color="${_YELLOW}"; fi
+    echo -e "    ${_DIM}Load:${_RC}      ${load1} ${load5} ${load15}  ${load_color}(${usage_pct}%)${_RC}"
+    if command -v sensors >/dev/null 2>&1; then
+        local cpu_temp
+        cpu_temp=$(sensors 2>/dev/null | awk '/^(Package id 0|Tctl|CPU|Core 0):/{for(i=1;i<=NF;i++){if($i~/^\+[0-9]/){gsub(/[+°C]/,"",$i); print $i; exit}}}')
+        if [ -n "$cpu_temp" ]; then
+            local temp_int=${cpu_temp%%.*}
+            local temp_color="${_GREEN}(ok)${_RC}"
+            if [ "$temp_int" -ge 80 ]; then
+                temp_color="${_RED}(hot!)${_RC}"
+            elif [ "$temp_int" -ge 60 ]; then
+                temp_color="${_YELLOW}(warm)${_RC}"
+            fi
+            echo -e "    ${_DIM}Temp:${_RC}      ${cpu_temp}°C  ${temp_color}"
+        fi
+    fi
+
+    # --- Memory ---
+    echo ""
+    echo -e "  ${_BOLD}${_CYAN}Memory${_RC}"
+    local mem_total mem_used mem_pct swap_total swap_used swap_pct
+    read -r mem_total mem_used _ mem_pct <<< "$(free -m | awk '/^Mem:/{printf "%s %s %s %.0f", $2, $3, $4, $3/$2*100}')"
+    local mem_color="${_GREEN}"
+    if [ "$mem_pct" -ge 90 ]; then mem_color="${_RED}"
+    elif [ "$mem_pct" -ge 70 ]; then mem_color="${_YELLOW}"; fi
+    echo -e "    ${_DIM}RAM:${_RC}       ${mem_used}M / ${mem_total}M  ${mem_color}(${mem_pct}%)${_RC}"
+    read -r swap_total swap_used _ swap_pct <<< "$(free -m | awk '/^Swap:/{if($2>0) printf "%s %s %s %.0f", $2, $3, $4, $3/$2*100; else print "0 0 0 0"}')"
+    if [ "$swap_total" -gt 0 ]; then
+        echo -e "    ${_DIM}Swap:${_RC}      ${swap_used}M / ${swap_total}M  (${swap_pct}%)"
+    else
+        echo -e "    ${_DIM}Swap:${_RC}      none"
+    fi
+
+    # --- Disk ---
+    echo ""
+    echo -e "  ${_BOLD}${_CYAN}Disk${_RC}"
+    while IFS= read -r line; do
+        local mount used total pct
+        mount=$(echo "$line" | awk '{print $6}')
+        used=$(echo "$line" | awk '{print $3}')
+        total=$(echo "$line" | awk '{print $2}')
+        pct=$(echo "$line" | awk '{gsub(/%/,"",$5); print $5}')
+        local disk_color="${_GREEN}"
+        if [ "$pct" -ge 90 ]; then disk_color="${_RED}"
+        elif [ "$pct" -ge 70 ]; then disk_color="${_YELLOW}"; fi
+        echo -e "    ${_DIM}${mount}:${_RC}  ${used} / ${total}  ${disk_color}(${pct}%)${_RC}"
+    done <<< "$(df -h --output=source,size,used,avail,pcent,target -x tmpfs -x devtmpfs -x efivarfs 2>/dev/null | tail -n +2)"
+
+    # --- Network ---
+    echo ""
+    echo -e "  ${_BOLD}${_CYAN}Network${_RC}"
+    local default_iface default_ip
+    default_iface=$(ip -4 route show default 2>/dev/null | awk '{print $5; exit}')
+    default_ip=$(ip -4 route get 1 2>/dev/null | awk '{print $7; exit}')
+    if [ -n "$default_iface" ]; then
+        echo -e "    ${_DIM}Interface:${_RC} ${default_iface}"
+        echo -e "    ${_DIM}Local IP:${_RC}  ${default_ip:-unknown}"
+    else
+        echo -e "    ${_DIM}Status:${_RC}    no network"
+    fi
+
+    # --- Listening ports (top 5) ---
+    if command -v ss >/dev/null 2>&1; then
+        local listeners
+        listeners=$(ss -tulnp 2>/dev/null | awk 'NR>1 && $1 ~ /^(tcp|udp)/{split($5,a,":"); port=a[length(a)]; proto=$1; proc=$7; gsub(/.*users:\(\("/,"",proc); gsub(/".*/,"",proc); if(port+0 > 0) printf "    %-6s %-8s %s\n", port, proto, proc}' | sort -t' ' -k1 -n -u | head -5)
+        if [ -n "$listeners" ]; then
+            echo ""
+            echo -e "  ${_BOLD}${_CYAN}Listening Ports${_RC} ${_DIM}(top 5)${_RC}"
+            echo -e "    ${_DIM}PORT   PROTO    PROCESS${_RC}"
+            echo "$listeners"
+        fi
+    fi
+
+    # --- Top processes by CPU ---
+    echo ""
+    echo -e "  ${_BOLD}${_CYAN}Top Processes${_RC} ${_DIM}(by CPU)${_RC}"
+    echo -e "    ${_DIM}CPU%   MEM%   PID    COMMAND${_RC}"
+    ps -eo pcpu,pmem,pid,comm --sort=-pcpu 2>/dev/null | awk 'NR>1 && NR<=6{printf "    %-6s %-6s %-6s %s\n", $1, $2, $3, $4}'
+
+    # --- Systemd failed units ---
+    if command -v systemctl >/dev/null 2>&1; then
+        local failed
+        failed=$(systemctl --no-pager --no-legend list-units --state=failed 2>/dev/null)
+        echo ""
+        if [ -n "$failed" ]; then
+            local fail_count
+            fail_count=$(echo "$failed" | wc -l)
+            echo -e "  ${_BOLD}${_CYAN}Systemd${_RC}  ${_RED}${fail_count} failed unit(s)${_RC}"
+            echo "$failed" | awk '{printf "    %s %s\n", $1, $2}' | head -5
+        else
+            echo -e "  ${_BOLD}${_CYAN}Systemd${_RC}  ${_GREEN}all units healthy${_RC}"
+        fi
+    fi
+
+    # --- Pending updates ---
+    _detect_distro
+    local updates=0
+    case "$_DISTRO" in
+    debian)   updates=$(apt list --upgradable 2>/dev/null | command grep -v "^Listing" | wc -l) ;;
+    arch)     updates=$(pacman -Qu 2>/dev/null | wc -l)
+              if command -v yay >/dev/null 2>&1; then
+                  local aur_updates
+                  aur_updates=$(yay -Qua 2>/dev/null | wc -l)
+                  updates=$((updates + aur_updates))
+              fi ;;
+    fedora)   updates=$(dnf check-update 2>/dev/null | command grep -c '^[a-zA-Z]' || echo 0) ;;
+    esac
+    echo ""
+    if [ "$updates" -gt 0 ]; then
+        echo -e "  ${_BOLD}${_CYAN}Updates${_RC}  ${_YELLOW}${updates} package(s) pending${_RC}"
+    else
+        echo -e "  ${_BOLD}${_CYAN}Updates${_RC}  ${_GREEN}system is up to date${_RC}"
+    fi
+
+    echo ""
+}
+
 # =========================
 # Keybindings and init
 # =========================

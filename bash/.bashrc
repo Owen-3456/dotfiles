@@ -7,15 +7,6 @@
 # Source global definitions
 if [ -f /etc/bashrc ]; then . /etc/bashrc; fi
 
-# Shell options (interactive)
-if [[ $- == *i* ]]; then
-    shopt -s checkwinsize
-    shopt -s cdspell
-    shopt -s dirspell
-    shopt -s histappend
-    shopt -s globstar
-fi
-
 # History configuration
 export HISTFILESIZE=10000
 export HISTSIZE=5000
@@ -24,8 +15,13 @@ export HISTCONTROL=erasedups:ignoredups:ignorespace
 # Sync history across all sessions: append, clear local, reload from file
 PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND; }history -a; history -c; history -r"
 
-# Interactive-only terminal tweaks
+# Interactive shell options and terminal tweaks
 if [[ $- == *i* ]]; then
+    shopt -s checkwinsize
+    shopt -s cdspell
+    shopt -s dirspell
+    shopt -s histappend
+    shopt -s globstar
     bind "set bell-style visible"
     bind "set completion-ignore-case on"
     bind "set show-all-if-ambiguous On"
@@ -39,7 +35,6 @@ export XDG_STATE_HOME="$HOME/.local/state"
 export XDG_CACHE_HOME="$HOME/.cache"
 
 # Misc environment
-export LINUXTOOLBOXDIR="$HOME/linuxtoolbox"
 export EDITOR=nano
 export VISUAL="code -w"
 
@@ -76,7 +71,6 @@ fi
 # =========================
 export CLICOLOR=1
 export LS_COLORS='no=00:fi=00:di=00;34:ln=01;36:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arj=01;31:*.taz=01;31:*.lzh=01;31:*.zip=01;31:*.z=01;31:*.Z=01;31:*.gz=01;31:*.bz2=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.jpg=01;35:*.jpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.avi=01;35:*.fli=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.ogg=01;35:*.mp3=01;35:*.wav=01;35:*.xml=00;31:'
-unset GREP_OPTIONS
 export LESS_TERMCAP_mb=$'\E[01;31m'
 export LESS_TERMCAP_md=$'\E[01;31m'
 export LESS_TERMCAP_me=$'\E[0m'
@@ -103,51 +97,39 @@ alias mkdir='mkdir -p'
 
 # Enhanced ls variants using eza (with fallback to ls)
 if command -v eza >/dev/null 2>&1; then
-    alias ls='eza -l --group-directories-first --icons'                  # no hidden files
-    alias la='eza -la --icons --group-directories-first'                 # show hidden files
-    alias lx='eza -la --sort=ext --icons --group-directories-first'      # sort by extension
-    alias lk='eza -la --sort=size --icons --group-directories-first'     # sort by size
-    alias lc='eza -la --sort=changed --icons --group-directories-first'  # sort by change time
-    alias lu='eza -la --sort=accessed --icons --group-directories-first' # sort by access time
-    alias lr='eza -la --recurse --icons --group-directories-first'       # recursive ls
-    alias lt='eza -la --sort=modified --icons --group-directories-first' # sort by date
-    alias lm='eza -la --icons --group-directories-first | more'          # pipe through 'more'
-    alias lw='eza -a --icons --group-directories-first'                  # wide listing format
-    alias ll='eza -l --icons --group-directories-first'                  # long listing format (no hidden)
-    alias lf='eza -la --icons -f'                                        # files only
-    alias ldir='eza -la --icons -D'                                      # directories only
-    alias ltree='eza -la --tree --icons --group-directories-first'       # tree view
+    alias ls='eza --group-directories-first --icons'                          # compact, no hidden
+    alias ll='eza -l --group-directories-first --icons'                       # long listing, no hidden
+    alias la='eza -la --group-directories-first --icons'                      # long listing + hidden
+    alias lt='eza -la --sort=modified --group-directories-first --icons'      # sort by modified time
+    alias lk='eza -la --sort=size --group-directories-first --icons'          # sort by size
+    alias lx='eza -la --sort=ext --group-directories-first --icons'           # sort by extension
+    alias lr='eza -la --recurse --group-directories-first --icons'            # recursive
+    alias lw='eza -a --group-directories-first --icons'                       # compact + hidden
+    alias lf='eza -la --icons -f'                                             # files only
+    alias ldir='eza -la --icons -D'                                           # directories only
+    alias ltree='eza -la --tree --group-directories-first --icons'            # tree view
 else
-    alias ls='ls -l --color=auto' # no hidden files
-    alias la='ls -Alh'
-    alias lx='ls -lXBha'
-    alias lk='ls -lSrha'
-    alias lc='ls -ltcrha'
-    alias lu='ls -lturha'
-    alias lr='ls -lRha'
-    alias lt='ls -ltrha'
-    alias lm='ls -alh | more'
-    alias lw='ls -xAh'
-    alias ll='ls -l --color=auto'
-    alias lf="ls -la | grep -v '^d'"
-    alias ldir="ls -la | grep '^d'"
+    alias ls='command ls --color=auto'                                        # compact, no hidden
+    alias ll='command ls -lh --color=auto'                                    # long listing, no hidden
+    alias la='command ls -lAh --color=auto'                                   # long listing + hidden
+    alias lt='command ls -lAht --color=auto'                                  # sort by modified time
+    alias lk='command ls -lAhS --color=auto'                                  # sort by size
+    alias lx='command ls -lAhXB --color=auto'                                 # sort by extension
+    alias lr='command ls -lAhR --color=auto'                                  # recursive
+    alias lw='command ls -xA --color=auto'                                    # compact + hidden
+    alias lf="command ls -lAh --color=auto | command grep -v '^d'"            # files only
+    alias ldir="command ls -la --color=auto | command grep '^d'"              # directories only
 fi
 command -v btop >/dev/null 2>&1 && alias top='btop'
-command -v btop >/dev/null 2>&1 && alias htop='btop'
 command -v fastfetch >/dev/null 2>&1 && alias neofetch='fastfetch'
 alias wget='wget --show-progress --progress=bar:force:noscroll'
 alias cls='clear'
 
-# Ripgrep integration
-if command -v rg >/dev/null 2>&1; then
-    alias grep='rg'
-else
-    alias grep='/usr/bin/grep --color=auto'
-fi
+# Grep: always use color (ripgrep available as 'rg')
+alias grep='/usr/bin/grep --color=auto'
 
 # System aliases
-alias rebootsafe='sudo shutdown -r now'
-alias rebootforce='sudo shutdown -r -n now'
+alias reboot='sudo shutdown -r now'
 
 # Git functions (more flexible than aliases)
 gl() {
@@ -159,13 +141,18 @@ gs() {
 }
 
 # Utility aliases
-alias linutil="curl -fsSL https://christitus.com/linux | sh"
-alias rmd='trash --recursive --force --verbose '
+linutil() {
+    echo "This will download and run a remote script from https://christitus.com/linux"
+    read -r -p "Continue? (y/N): " ans
+    if [[ $ans =~ ^[Yy]$ ]]; then
+        curl -fsSL https://christitus.com/linux | sh
+    else
+        echo "Cancelled."
+    fi
+}
 alias checkcommand="type -t"
-alias openports='netstat -nape --inet'
-alias whatismyip="whatsmyip"
-alias whatmyip="whatsmyip"
-alias getip="whatsmyip"
+alias openports='ss -tulnp'
+alias myip="whatsmyip"
 command -v xclip >/dev/null 2>&1 && alias copy='xclip -selection clipboard'
 
 # =========================
@@ -250,8 +237,7 @@ _require_pkg() {
         command -v "$pkg" >/dev/null 2>&1 || missing+=("$pkg")
     done
     if [ ${#missing[@]} -eq 0 ]; then return 0; fi
-    echo "${missing[*]} required for $desc. Install now? (y/N): "
-    read -r ans
+    read -r -p "${missing[*]} required for $desc. Install now? (y/N): " ans
     if [[ $ans =~ ^[Yy]$ ]]; then
         _pkg_install "${missing[@]}"
     else
@@ -307,7 +293,7 @@ _ui_step() {
     echo -e "  ${_BOLD}${_CYAN}[${_UI_STEP}/${_UI_TOTAL}]${_RC} ${_BOLD}$*${_RC}"
 }
 
-# Spinner: braille dot animation running in background
+# Spinner: rotating line animation running in background
 __spinner_pid=""
 _start_spinner() {
     local msg="$1"
@@ -368,9 +354,13 @@ extract() {
             case "$archive" in
             *.tar.bz2) tar xvjf "$archive" ;;
             *.tar.gz) tar xvzf "$archive" ;;
+            *.tar.xz) tar xvJf "$archive" ;;
+            *.tar.zst) tar --zstd -xvf "$archive" ;;
             *.bz2) bunzip2 "$archive" ;;
             *.rar) unrar x "$archive" ;;
             *.gz) gunzip "$archive" ;;
+            *.xz) unxz "$archive" ;;
+            *.zst) unzstd "$archive" ;;
             *.tar) tar xvf "$archive" ;;
             *.tbz2) tar xvjf "$archive" ;;
             *.tgz) tar xvzf "$archive" ;;
@@ -383,31 +373,6 @@ extract() {
             echo "'$archive' is not a valid file!"
         fi
     done
-}
-
-# Ftext: search recursively in current dir and page results
-ftext() {
-    command grep -iIHrn --color=always "$1" . | less -r
-}
-
-# Cpp: copy a file with a simple progress bar via strace/awk
-cpp() {
-    (
-        set -e
-        strace -q -ewrite cp -- "${1}" "${2}" 2>&1 |
-            awk '{
-            count += $NF
-            if (count % 10 == 0) {
-                percent = count / total_size * 100
-                printf "%3d%% [", percent
-                for (i=0;i<=percent;i++) printf "="
-                printf ">"
-                for (i=percent;i<100;i++) printf " "
-                printf "]\r"
-            }
-        }
-        END { print "" }' total_size="$(stat -c '%s' "${1}")" count=0
-    )
 }
 
 # Cpg: copy a file then cd into the destination if it's a directory
@@ -443,11 +408,6 @@ up() {
     builtin cd "${path%/}" || return 1
 }
 
-# Pwdtail: print the last two segments of current path
-pwdtail() {
-    pwd | awk -F/ '{nlast = NF -1;print $nlast"/"$NF}'
-}
-
 # Whatsmyip: show internal (active interface) and external IPv4
 whatsmyip() {
     echo -n "Internal IP: "
@@ -459,11 +419,16 @@ whatsmyip() {
         echo "Unknown"
     fi
     echo -n "External IP: "
-    curl -4 -s ifconfig.me || echo "Unknown"
+    curl -4 -s --connect-timeout 5 --max-time 10 ifconfig.me || echo "Unknown"
 }
 
 # Portscan: quick TCP port scan on a target using nmap
 portscan() {
+    _require_cmd nmap || return 1
+    if [ -z "$1" ]; then
+        echo "Usage: portscan <host>"
+        return 1
+    fi
     nmap -p- "$1" 2>/dev/null
 }
 
@@ -471,6 +436,8 @@ portscan() {
 # Hastebin instance hosted by Chris Titus (https://christitus.com/)
 # NOTE: This endpoint only supports HTTP. HTTPS is not available for this service.
 hb() {
+    _require_cmd jq || return 1
+    _require_cmd curl || return 1
     if [ $# -eq 0 ]; then
         echo "No file path specified."
         return
@@ -480,13 +447,21 @@ hb() {
     fi
     local uri="http://bin.christitus.com/documents"
     local response
-    response=$(curl -s -X POST -d @"$1" "$uri")
-    if [ $? -eq 0 ]; then
+    response=$(curl -s --connect-timeout 5 --max-time 30 -X POST -d @"$1" "$uri")
+    if [ $? -eq 0 ] && [ -n "$response" ]; then
         local hasteKey
-        hasteKey=$(echo "$response" | jq -r '.key')
+        hasteKey=$(echo "$response" | jq -r '.key' 2>/dev/null)
+        if [ -z "$hasteKey" ] || [ "$hasteKey" = "null" ]; then
+            echo "Failed to parse response from server."
+            return 1
+        fi
         local url="http://bin.christitus.com/$hasteKey"
-        echo "$url" | xclip -selection clipboard
-        echo "$url - Copied to clipboard."
+        if command -v xclip >/dev/null 2>&1; then
+            echo "$url" | xclip -selection clipboard
+            echo "$url - Copied to clipboard."
+        else
+            echo "$url"
+        fi
     else
         echo "Failed to upload the document."
     fi
@@ -507,14 +482,27 @@ serve() {
 
     local url="http://${ip}:${port}"
 
+    local line_local="  Local:   http://localhost:${port}"
+    local line_network="  Network: ${url}"
+    local line_dir="  Dir:     $(pwd)"
+    local title="  HTTP Server"
+
+    # Find longest line to size the box
+    local max_len=${#title}
+    for line in "$line_local" "$line_network" "$line_dir"; do
+        [ ${#line} -gt $max_len ] && max_len=${#line}
+    done
+    max_len=$((max_len + 2)) # padding
+
+    local border=$(printf '─%.0s' $(seq 1 $max_len))
     echo ""
-    echo "┌─────────────────────────────────────┐"
-    echo "│  🌐 HTTP Server                     │"
-    echo "├─────────────────────────────────────┤"
-    echo "│  Local:   http://localhost:${port}"
-    echo "│  Network: ${url}"
-    echo "│  Dir:     $(pwd)"
-    echo "└─────────────────────────────────────┘"
+    printf '┌%s┐\n' "$border"
+    printf '│%-*s│\n' "$max_len" "$title"
+    printf '├%s┤\n' "$border"
+    printf '│%-*s│\n' "$max_len" "$line_local"
+    printf '│%-*s│\n' "$max_len" "$line_network"
+    printf '│%-*s│\n' "$max_len" "$line_dir"
+    printf '└%s┘\n' "$border"
 
     # Copy URL to clipboard if xclip is available
     if command -v xclip >/dev/null 2>&1; then
@@ -733,7 +721,7 @@ updatepkg() {
     fi
 
     local avail_count
-    avail_count=$(echo "$upgradable" | wc -l)
+    avail_count=$(echo "$upgradable" | command grep -c '.')
     _ui_ok "$avail_count update(s) available"
 
     # Step 2: Select packages
@@ -926,7 +914,7 @@ updatesys() {
 
         # Check for available updates
         local upgradable_list=$(apt list --upgradable 2>/dev/null | command grep -v "^Listing")
-        packages_updated=$(echo "$upgradable_list" | command grep -c '^' 2>/dev/null || echo 0)
+        packages_updated=$(echo "$upgradable_list" | command grep -c '.')
 
         if [ "$packages_updated" -eq 0 ]; then
             _ui_info "No updates available"
@@ -985,7 +973,7 @@ updatesys() {
 
         # Check for available updates
         local upgradable_list=$(yay -Qu 2>/dev/null)
-        packages_updated=$(echo "$upgradable_list" | command grep -c '^' 2>/dev/null || echo 0)
+        packages_updated=$(echo "$upgradable_list" | command grep -c '.')
 
         # Step 3: Check updates
         _ui_step "Checking for updates"
@@ -1004,7 +992,7 @@ updatesys() {
         if [ "$packages_updated" -eq 0 ]; then
             _ui_ok "Nothing to upgrade"
         else
-            _run_with_spinner "Upgrading official packages" sudo pacman -Su --noconfirm || return 1
+            _run_with_spinner "Upgrading official packages" sudo pacman -Syu --noconfirm || return 1
 
             # AUR packages
             local aur_updates
@@ -1016,7 +1004,7 @@ updatesys() {
                 for pkg in $aur_list; do
                     local cache_dir="$HOME/.cache/yay/$pkg"
                     if [ -d "$cache_dir" ]; then
-                        rm -rf "$cache_dir" 2>/dev/null || true
+                        command rm -rf "$cache_dir" 2>/dev/null || true
                     fi
                 done
 
@@ -1156,13 +1144,13 @@ updatesys() {
     # Show remaining updates
     local updates=0
     case "$_DISTRO" in
-    debian)   updates=$(apt list --upgradable 2>/dev/null | command grep -v "^Listing" | wc -l) ;;
-    arch)     updates=$(yay -Qu 2>/dev/null | wc -l) ;;
-    fedora)   updates=$(dnf check-update 2>/dev/null | command grep -c '^[a-zA-Z]' || echo 0) ;;
-    opensuse) updates=$(zypper list-updates 2>/dev/null | command grep -c '^v' || echo 0) ;;
-    alpine)   updates=$(apk version -l '<' 2>/dev/null | wc -l) ;;
-    void)     updates=$(xbps-install -nu 2>/dev/null | wc -l) ;;
-    solus)    updates=$(eopkg lu 2>/dev/null | command grep -c '^' || echo 0) ;;
+    debian)   updates=$(apt list --upgradable 2>/dev/null | command grep -v "^Listing" | command grep -c '.') ;;
+    arch)     updates=$(yay -Qu 2>/dev/null | command grep -c '.') ;;
+    fedora)   updates=$(dnf check-update 2>/dev/null | command grep -c '^[a-zA-Z]') ;;
+    opensuse) updates=$(zypper list-updates 2>/dev/null | command grep -c '^v') ;;
+    alpine)   updates=$(apk version -l '<' 2>/dev/null | command grep -c '.') ;;
+    void)     updates=$(xbps-install -nu 2>/dev/null | command grep -c '.') ;;
+    solus)    updates=$(eopkg lu 2>/dev/null | command grep -c '.') ;;
     esac
 
     if [ "$updates" -gt 0 ]; then
@@ -1327,6 +1315,8 @@ fzfkill() {
 
 # Ytdl: download YouTube video into ~/Videos (mp4)
 ytdl() {
+    _require_cmd yt-dlp || return 1
+
     local default_dir="$HOME/Videos"
     local url quality download_dir height format
 
@@ -1361,11 +1351,6 @@ ytdl() {
         return 1
     }
 
-    if ! command -v yt-dlp >/dev/null 2>&1; then
-        echo "Error: yt-dlp is not installed. Please install it first."
-        return 1
-    fi
-
     (
         builtin cd "$download_dir" || return
 
@@ -1399,7 +1384,7 @@ openremote() {
 
 # Weather: get weather for a city (default: auto-detect location)
 weather() {
-    curl -s "wttr.in/${1:-}"
+    curl -s --connect-timeout 5 --max-time 15 "wttr.in/${1:-}"
 }
 
 # Sysinfo: quick system health dashboard
@@ -1525,14 +1510,14 @@ sysinfo() {
     _detect_distro
     local updates=0
     case "$_DISTRO" in
-    debian)   updates=$(apt list --upgradable 2>/dev/null | command grep -v "^Listing" | wc -l) ;;
-    arch)     updates=$(pacman -Qu 2>/dev/null | wc -l)
+    debian)   updates=$(apt list --upgradable 2>/dev/null | command grep -v "^Listing" | command grep -c '.') ;;
+    arch)     updates=$(pacman -Qu 2>/dev/null | command grep -c '.')
               if command -v yay >/dev/null 2>&1; then
                   local aur_updates
-                  aur_updates=$(yay -Qua 2>/dev/null | wc -l)
+                  aur_updates=$(yay -Qua 2>/dev/null | command grep -c '.')
                   updates=$((updates + aur_updates))
               fi ;;
-    fedora)   updates=$(dnf check-update 2>/dev/null | command grep -c '^[a-zA-Z]' || echo 0) ;;
+    fedora)   updates=$(dnf check-update 2>/dev/null | command grep -c '^[a-zA-Z]') ;;
     esac
     echo ""
     if [ "$updates" -gt 0 ]; then
@@ -1550,22 +1535,17 @@ sysinfo() {
 
 # Show custom keybindings
 keybinds() {
-    local CYAN='\033[0;36m'
-    local YELLOW='\033[1;33m'
-    local GREEN='\033[0;32m'
-    local RC='\033[0m'
-
     echo ""
-    echo -e "${CYAN}┌─────────────────────────────────────────────────────┐${RC}"
-    echo -e "${CYAN}│${RC}${YELLOW}  Custom Keybindings                                 ${RC}${CYAN}│${RC}"
-    echo -e "${CYAN}├─────────────────────────────────────────────────────┤${RC}"
-    echo -e "${CYAN}│${RC}${GREEN}  Ctrl+f     Zoxide interactive (zi)                 ${RC}${CYAN}│${RC}"
-    echo -e "${CYAN}│${RC}${GREEN}  Ctrl+y     Install package (installpkg)            ${RC}${CYAN}│${RC}"
-    echo -e "${CYAN}│${RC}${GREEN}  Ctrl+r     Fuzzy history search                    ${RC}${CYAN}│${RC}"
-    echo -e "${CYAN}│${RC}${GREEN}  Ctrl+t     Fuzzy file search                       ${RC}${CYAN}│${RC}"
-    echo -e "${CYAN}│${RC}${GREEN}  Ctrl+g     Fuzzy directory search                  ${RC}${CYAN}│${RC}"
-    echo -e "${CYAN}│${RC}${GREEN}  Ctrl+x     Fuzzy delete (fzfdel)                   ${RC}${CYAN}│${RC}"
-    echo -e "${CYAN}└─────────────────────────────────────────────────────┘${RC}"
+    echo -e "${_CYAN}┌─────────────────────────────────────────────────────┐${_RC}"
+    echo -e "${_CYAN}│${_RC}${_YELLOW}  Custom Keybindings                                 ${_RC}${_CYAN}│${_RC}"
+    echo -e "${_CYAN}├─────────────────────────────────────────────────────┤${_RC}"
+    echo -e "${_CYAN}│${_RC}${_GREEN}  Ctrl+f     Zoxide interactive (zi)                 ${_RC}${_CYAN}│${_RC}"
+    echo -e "${_CYAN}│${_RC}${_GREEN}  Ctrl+y     Install package (installpkg)            ${_RC}${_CYAN}│${_RC}"
+    echo -e "${_CYAN}│${_RC}${_GREEN}  Ctrl+r     Fuzzy history search                    ${_RC}${_CYAN}│${_RC}"
+    echo -e "${_CYAN}│${_RC}${_GREEN}  Ctrl+t     Fuzzy file search                       ${_RC}${_CYAN}│${_RC}"
+    echo -e "${_CYAN}│${_RC}${_GREEN}  Ctrl+g     Fuzzy directory search                  ${_RC}${_CYAN}│${_RC}"
+    echo -e "${_CYAN}│${_RC}${_GREEN}  Ctrl+x     Fuzzy delete (fzfdel)                   ${_RC}${_CYAN}│${_RC}"
+    echo -e "${_CYAN}└─────────────────────────────────────────────────────┘${_RC}"
     echo ""
 }
 

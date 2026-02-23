@@ -312,7 +312,7 @@ __spinner_pid=""
 _start_spinner() {
     local msg="$1"
     {
-        local frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+        local frames=('|' '/' '-' '\')
         local i=0
         while true; do
             printf "\r       \033[0;36m%s\033[0m \033[2m%s\033[0m" "${frames[$i]}" "$msg"

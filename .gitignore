@@ -1,0 +1,10 @@
+# Editor temporary files
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Log files that might get generated
+*.log

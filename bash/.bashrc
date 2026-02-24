@@ -1387,6 +1387,131 @@ weather() {
     curl -s --connect-timeout 5 --max-time 15 "wttr.in/${1:-}"
 }
 
+# Topdf: convert docx/pptx files to PDF in current directory
+topdf() {
+    _require_cmd libreoffice || return 1
+    _require_cmd fzf || return 1
+    
+    export _UPDATESYS_LOG
+    _UPDATESYS_LOG=$(mktemp /tmp/topdf-XXXXXX.log)
+    trap '_stop_spinner; trap - INT RETURN; return 130' INT
+    trap '_stop_spinner; trap - INT RETURN' RETURN
+    
+    # Find all convertible files
+    local files=()
+    while IFS= read -r -d '' file; do
+        files+=("$file")
+    done < <(find . -maxdepth 1 -type f \( -name "*.docx" -o -name "*.pptx" \) -print0 2>/dev/null | sort -z)
+    
+    if [ ${#files[@]} -eq 0 ]; then
+        echo ""
+        _ui_info "No .docx or .pptx files found in current directory"
+        echo ""
+        return 0
+    fi
+    
+    # Header
+    echo ""
+    echo -e "  ${_BOLD}Convert to PDF${_RC} ${_DIM}| ${#files[@]} file(s) found | log: ${_UPDATESYS_LOG}${_RC}"
+    echo -e "  ${_DIM}──────────────────────────────────────${_RC}"
+    
+    # List files
+    echo ""
+    local i=1
+    for file in "${files[@]}"; do
+        echo -e "    ${_DIM}$i.${_RC} $(basename "$file")"
+        ((i++))
+    done
+    
+    # Show options
+    echo ""
+    echo -e "  ${_CYAN}Options:${_RC}"
+    echo -e "    ${_DIM}[a]${_RC} Convert all"
+    echo -e "    ${_DIM}[s]${_RC} Select specific files (fzf)"
+    echo -e "    ${_DIM}[c]${_RC} Cancel"
+    echo ""
+    read -r -p "  Choose option: " choice
+    
+    local to_convert=()
+    case "$choice" in
+        a|A)
+            to_convert=("${files[@]}")
+            ;;
+        s|S)
+            # Use fzf for file selection
+            local selected
+            selected=$(printf '%s\n' "${files[@]}" | sed 's|^\./||' | fzf --multi \
+                --header="Select files to convert (TAB for multi-select, ENTER to confirm)" \
+                --preview 'file {}' \
+                --preview-window=right:40%:wrap)
+            
+            if [ -z "$selected" ]; then
+                echo ""
+                _ui_info "No files selected"
+                echo ""
+                return 0
+            fi
+            
+            # Convert selected basenames back to full paths
+            while IFS= read -r line; do
+                to_convert+=("./$line")
+            done <<< "$selected"
+            ;;
+        c|C|*)
+            echo ""
+            _ui_info "Cancelled"
+            echo ""
+            return 0
+            ;;
+    esac
+    
+    # Set up UI
+    _UI_STEP=0
+    _UI_TOTAL=${#to_convert[@]}
+    
+    # Convert files
+    echo ""
+    local converted=0
+    local failed=0
+    
+    for file in "${to_convert[@]}"; do
+        _ui_step "Converting $(basename "$file")"
+        local dirname=$(dirname "$file")
+        
+        _start_spinner "Converting to PDF"
+        echo "=== $(date '+%H:%M:%S') :: $(basename "$file") ===" >> "$_UPDATESYS_LOG"
+        if libreoffice --headless --convert-to pdf "$file" --outdir "$dirname" >> "$_UPDATESYS_LOG" 2>&1; then
+            _stop_spinner
+            if rm "$file" 2>/dev/null; then
+                _ui_ok "Converted and removed original"
+                ((converted++))
+            else
+                _ui_warn "Converted but failed to remove original"
+                ((converted++))
+            fi
+        else
+            _stop_spinner
+            _ui_fail "Conversion failed"
+            ((failed++))
+        fi
+    done
+    
+    # Summary
+    echo ""
+    echo -e "  ${_GREEN}${_BOLD}──────────────────────────────────────${_RC}"
+    echo -e "  ${_GREEN}${_BOLD}  Done!${_RC}"
+    echo -e "  ${_GREEN}${_BOLD}──────────────────────────────────────${_RC}"
+    echo ""
+    if [ "$converted" -gt 0 ]; then
+        echo -e "    ${_TICK} ${_DIM}Converted: ${converted}${_RC}"
+    fi
+    if [ "$failed" -gt 0 ]; then
+        echo -e "    ${_CROSS} ${_DIM}Failed: ${failed}${_RC}"
+    fi
+    echo -e "    ${_DIM}Full log: ${_UPDATESYS_LOG}${_RC}"
+    echo ""
+}
+
 # Sysinfo: quick system health dashboard
 sysinfo() {
     echo ""

@@ -17,22 +17,23 @@ This runs the [Linux Setup Script](https://github.com/Owen-3456/Linux-Setup-Scri
 ```bash
 git clone https://github.com/Owen-3456/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
-stow bash <package>
+stow <package>  # e.g., stow zsh alacritty starship tmux
 ```
 
 ---
 
 ## Packages
 
-### Bash
+### Zsh
 
-**`bash/.bashrc`** -- The core of this setup. A ~1250 line config that provides a full interactive shell environment with custom functions, aliases, keybindings, and multi-distro package management.
+**`zsh/.zshrc`** -- The core of this setup. An ~1800 line config that provides a full interactive shell environment with custom functions, aliases, keybindings, modern plugins, and multi-distro package management.
 
 #### Shell Options & History
 
-- Case-insensitive tab completion, typo correction for `cd` and directory names (`cdspell`, `dirspell`)
-- Recursive globbing with `**` (`globstar`)
-- 10,000-line persistent history with timestamps, deduplication, and cross-session sync
+- Case-insensitive tab completion with menu selection
+- Recursive globbing with `**` 
+- Command spelling correction
+- 10,000-line persistent history with cross-session sync, deduplication, and no duplicates in search
 - Ctrl+S/Ctrl+Q flow control disabled (`stty -ixon`)
 
 #### Environment
@@ -45,6 +46,20 @@ stow bash <package>
 
 PATH includes `~/.local/bin`, `~/.cargo/bin`, and Flatpak export directories.
 
+#### Zsh Plugins
+
+Powered by [zinit](https://github.com/zdharma-continuum/zinit) plugin manager:
+
+- **zsh-completions** -- Extra completion definitions
+- **zsh-autosuggestions** -- Fish-like command suggestions from history
+- **fzf-tab** -- FZF-powered tab completion with file previews
+- **zsh-autopair** -- Auto-close brackets, quotes, and parentheses
+- **zsh-you-should-use** -- Reminds you of existing aliases
+- **zsh-auto-notify** -- Desktop notifications for long-running commands (>10s)
+- **colorize** -- Syntax highlighting for cat/less/tail
+- **history-search-multi-word** -- Enhanced history search with highlighting
+- **fast-syntax-highlighting** -- Real-time command syntax highlighting
+
 #### Aliases
 
 Common commands are aliased to modern replacements when available:
@@ -52,19 +67,17 @@ Common commands are aliased to modern replacements when available:
 | Alias          | Replacement                                 | Fallback          |
 | -------------- | ------------------------------------------- | ----------------- |
 | `ls`           | `eza` (with icons, long format, dirs first) | `ls --color=auto` |
-| `cat`          | `bat` / `batcat` (syntax highlighting)      | `cat`             |
-| `top` / `htop` | `btop`                                      | original          |
-| `grep`         | `rg` (ripgrep)                              | `grep`            |
-| `man`          | `tldr`                                      | `man`             |
+| `top`          | `btop`                                      | original          |
 | `neofetch`     | `fastfetch`                                 | `neofetch`        |
 | `rm`           | `trash -v` (trash-cli)                      | `rm`              |
 | `cd`           | `z` (zoxide)                                | `cd`              |
+| `reload`       | `exec zsh` (restart shell)                  | N/A               |
 
-Additional aliases: `mv -i` (confirm overwrite), `mkdir -p` (create parents), `cls` (clear), `copy` (xclip), `rebootsafe`, `rebootforce`, and a full set of `ls` variants (`la`, `ll`, `lt`, `ltree`, etc.).
+Additional aliases: `mv -i` (confirm overwrite), `mkdir -p` (create parents), `cls` (clear), `copy` (xclip), and a full set of `ls` variants (`la`, `ll`, `lt`, `ltree`, `lf`, `ldir`, etc.).
 
 #### Key Commands
 
-These are the main custom functions defined in the bashrc:
+These are the main custom functions defined in the zshrc:
 
 ##### `updatesys` -- Full System Upgrade
 
@@ -120,6 +133,8 @@ Fuzzy-search files and directories, multi-select, and move them to trash (recove
 | `gl`             | Pretty git log (graph, oneline, all branches)                    |
 | `gs`             | Short git status with branch info                                |
 | `keybinds`       | Print a table of all custom keybindings                          |
+| `topdf <file>`   | Convert DOCX/PPTX/ODT files to PDF using LibreOffice             |
+| `sysinfo`        | Display comprehensive system information summary                 |
 
 #### Keybindings
 
@@ -134,10 +149,11 @@ Fuzzy-search files and directories, multi-select, and move them to trash (recove
 
 #### Shell Integrations
 
-The bashrc initializes these tools at the end of the file (if installed):
+The zshrc initializes these tools at the end of the file (if installed):
 
-- **[Starship](https://starship.rs/)** -- Cross-shell prompt
-- **[Zoxide](https://github.com/ajeetdsouza/zoxide)** -- Smarter `cd` (aliased to `cd`)
+- **[Starship](https://starship.rs/)** -- Cross-shell prompt with powerline theme
+- **[Zoxide](https://github.com/ajeetdsouza/zoxide)** -- Smarter `cd` with frecency (aliased to `cd`)
+- **[FZF](https://github.com/junegunn/fzf)** -- Fuzzy finder for interactive searching
 
 ---
 
@@ -145,7 +161,7 @@ The bashrc initializes these tools at the end of the file (if installed):
 
 **`starship/.config/starship.toml`** -- A powerline-style prompt with a dark gradient theme using Nerd Font icons.
 
-Segments (left to right): Python venv, username, shell icon, directory (truncated to 3 levels with icon substitutions), git branch/status, language versions (C, Go, Rust, Node.js, Java, etc.), Docker context, and current time.
+Segments (left to right): Python venv, username, directory (truncated to 3 levels with icon substitutions like  for Documents), git branch/status, language versions (C, Go, Rust, Node.js, Java, etc.), Docker context, and current time. Shell indicator disabled.
 
 ---
 
@@ -157,7 +173,7 @@ Segments (left to right): Python venv, username, shell icon, directory (truncate
 - Opacity: 0.9 (slightly transparent)
 - Cursor: beam shape, no blink
 - Starts maximized, 10,000-line scrollback
-- Shell: `/bin/bash`
+- Shell: `/bin/zsh`
 
 ---
 
@@ -208,17 +224,17 @@ Displays a boxed layout with sections for hardware (host, CPU, GPU, memory), OS 
 
 ```text
 ~/.dotfiles/
-├── alacritty/      # Terminal emulator
-├── bash/           # Shell config (~1250 lines)
+├── alacritty/      # Terminal emulator config
 ├── fastfetch/      # System info display
 ├── git/            # Git global config
-├── nano/           # Text editor
-├── powershell/     # PowerShell profile
-├── starship/       # Shell prompt
-└── tmux/           # Terminal multiplexer
+├── nano/           # Text editor config
+├── opencode/       # OpenCode (AI editor) config
+├── starship/       # Shell prompt theme
+├── tmux/           # Terminal multiplexer config
+└── zsh/            # Zsh shell config (~1800 lines)
 ```
 
-Each directory mirrors the structure of `$HOME`. Running `stow <package>` from `~/.dotfiles/` creates the appropriate symlinks (e.g., `stow bash` creates `~/.bashrc -> ~/.dotfiles/bash/.bashrc`).
+Each directory mirrors the structure of `$HOME`. Running `stow <package>` from `~/.dotfiles/` creates the appropriate symlinks (e.g., `stow zsh` creates `~/.zshrc -> ~/.dotfiles/zsh/.zshrc`).
 
 ---
 

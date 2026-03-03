@@ -23,9 +23,9 @@ $rust\
 $docker_context\
 [](fg:#5a5a5a bg:#6a6a6a)\
 $time\
-[ ](fg:#6a6a6a)\
+[ ](fg:#6a6a6a)\
 """
-command_timeout = 5000
+command_timeout = 1000
 # Disable the blank line at the start of the prompt
 # add_newline = false
 

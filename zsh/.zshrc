@@ -80,14 +80,23 @@ zstyle ':completion:*' menu select
 # Zinit plugins
 zinit light zsh-users/zsh-completions               # extra completion definitions
 zinit light zsh-users/zsh-autosuggestions            # fish-like autosuggestions
-zinit light zsh-users/zsh-history-substring-search   # up/down searches history by current input
+zinit light Aloxaf/fzf-tab                           # fzf-based tab completion
 zinit light hlissner/zsh-autopair                    # auto-close brackets, quotes, parens
 zinit light MichaelAquilina/zsh-you-should-use       # reminds you of existing aliases
-zinit light zsh-users/zsh-syntax-highlighting        # command syntax highlighting (must be last plugin)
+zinit light MichaelAquilina/zsh-auto-notify          # desktop notifications for long commands
+zinit light zpm-zsh/colorize                         # syntax highlighting for cat/less/tail
+zinit light zdharma-continuum/history-search-multi-word  # better history search with highlighting
+zinit light zdharma-continuum/fast-syntax-highlighting   # fast command syntax highlighting (must be last)
 
-# History substring search keybindings (up/down arrow)
-bindkey '^[[A' history-substring-search-up
-bindkey '^[[B' history-substring-search-down
+# zsh-autosuggestions configuration
+export ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+export ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
+
+# fzf-tab configuration
+zstyle ':fzf-tab:*' fzf-command fzf
+zstyle ':fzf-tab:*' switch-group ',' '.'
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza -1 --color=always $realpath 2>/dev/null || ls -1 --color=always $realpath'
+zstyle ':fzf-tab:complete:*:*' fzf-preview 'if [[ -d $realpath ]]; then eza -1 --color=always $realpath 2>/dev/null || ls -1 --color=always $realpath; elif [[ -f $realpath ]]; then bat --color=always --style=numbers --line-range=:500 $realpath 2>/dev/null || cat $realpath; fi'
 
 # =========================
 # Colors and pager settings
@@ -95,20 +104,6 @@ bindkey '^[[B' history-substring-search-down
 export CLICOLOR=1
 export LS_COLORS='no=00:fi=00:di=00;34:ln=01;36:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arj=01;31:*.taz=01;31:*.lzh=01;31:*.zip=01;31:*.z=01;31:*.Z=01;31:*.gz=01;31:*.bz2=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.jpg=01;35:*.jpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.avi=01;35:*.fli=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.ogg=01;35:*.mp3=01;35:*.wav=01;35:*.xml=00;31:'
 zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
-export LESS_TERMCAP_mb=$'\E[01;31m'
-export LESS_TERMCAP_md=$'\E[01;31m'
-export LESS_TERMCAP_me=$'\E[0m'
-export LESS_TERMCAP_se=$'\E[0m'
-export LESS_TERMCAP_so=$'\E[01;44;33m'
-export LESS_TERMCAP_ue=$'\E[0m'
-export LESS_TERMCAP_us=$'\E[01;32m'
-
-# Prefer bat/batcat if available
-if (( $+commands[batcat] )); then
-    alias cat='batcat'
-elif (( $+commands[bat] )); then
-    alias cat='bat'
-fi
 
 # =========================
 # Aliases

@@ -149,7 +149,7 @@ alias grep='/usr/bin/grep --color=auto'
 
 # System aliases
 alias reboot='sudo shutdown -r now'
-alias reload='source ~/.zshrc'
+alias reload='exec zsh'
 
 # Git functions (more flexible than aliases)
 gl() {

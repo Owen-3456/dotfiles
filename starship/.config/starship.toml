@@ -37,7 +37,7 @@ style_root = "bg:#1e1e1e"
 format = '[$user ]($style)'
 
 [shell]
-disabled = false
+disabled = true
 style = "bg:#1e1e1e"
 format = '[ $indicator ]($style)'
 bash_indicator = ""

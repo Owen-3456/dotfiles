@@ -314,6 +314,8 @@ _ui_step() {
 __spinner_pid=""
 _start_spinner() {
     local msg="$1"
+    # Disable job control monitoring to prevent "terminated" messages
+    setopt local_options no_monitor
     {
         local frames=('|' '/' '-' '\')
         local i=0
@@ -324,6 +326,7 @@ _start_spinner() {
         done
     } &
     __spinner_pid=$!
+    disown
 }
 
 _stop_spinner() {

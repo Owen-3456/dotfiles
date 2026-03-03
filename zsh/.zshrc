@@ -115,17 +115,17 @@ alias mkdir='mkdir -p'
 
 # Enhanced ls variants using eza (with fallback to ls)
 if (( $+commands[eza] )); then
-    alias ls='eza --group-directories-first --icons'                          # compact, no hidden
-    alias ll='eza -l --group-directories-first --icons'                       # long listing, no hidden
-    alias la='eza -la --group-directories-first --icons'                      # long listing + hidden
-    alias lt='eza -la --sort=modified --group-directories-first --icons'      # sort by modified time
-    alias lk='eza -la --sort=size --group-directories-first --icons'          # sort by size
-    alias lx='eza -la --sort=ext --group-directories-first --icons'           # sort by extension
-    alias lr='eza -la --recurse --group-directories-first --icons'            # recursive
-    alias lw='eza -a --group-directories-first --icons'                       # compact + hidden
-    alias lf='eza -la --icons -f'                                             # files only
-    alias ldir='eza -la --icons -D'                                           # directories only
-    alias ltree='eza -la --tree --group-directories-first --icons'            # tree view
+    alias ls='eza --group-directories-first --icons --git'                          # compact, no hidden
+    alias ll='eza -l --group-directories-first --icons --git'                       # long listing, no hidden
+    alias la='eza -la --group-directories-first --icons --git'                      # long listing + hidden
+    alias lt='eza -la --sort=modified --group-directories-first --icons --git'      # sort by modified time
+    alias lk='eza -la --sort=size --group-directories-first --icons --git'          # sort by size
+    alias lx='eza -la --sort=ext --group-directories-first --icons --git'           # sort by extension
+    alias lr='eza -la --recurse --group-directories-first --icons --git'            # recursive
+    alias lw='eza -a --group-directories-first --icons --git'                       # compact + hidden
+    alias lf='eza -la --icons --git -f'                                             # files only
+    alias ldir='eza -la --icons --git -D'                                           # directories only
+    alias ltree='eza -la --tree --group-directories-first --icons --git'            # tree view
 else
     alias ls='command ls --color=auto'                                        # compact, no hidden
     alias ll='command ls -lh --color=auto'                                    # long listing, no hidden

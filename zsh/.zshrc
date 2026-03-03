@@ -21,7 +21,6 @@ setopt HIST_FIND_NO_DUPS     # don't display duplicates when searching history
 
 # Interactive shell options
 if [[ -o interactive ]]; then
-    setopt AUTO_CD             # cd by typing directory name
     setopt CORRECT             # spelling correction for commands (like cdspell)
     setopt GLOBSTAR_SHORT      # ** for recursive globbing (like bash globstar)
     setopt INTERACTIVE_COMMENTS # allow comments in interactive shell

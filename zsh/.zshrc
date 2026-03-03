@@ -12,13 +12,12 @@
 export HISTFILE="${HISTFILE:-$HOME/.zsh_history}"
 export HISTSIZE=10000
 export SAVEHIST=10000
-setopt APPEND_HISTORY        # append rather than overwrite
-setopt INC_APPEND_HISTORY    # write to history immediately (like bash history -a)
-setopt SHARE_HISTORY         # share history across all sessions
+setopt SHARE_HISTORY         # share history across all sessions (implies INC_APPEND_HISTORY)
 setopt HIST_IGNORE_DUPS      # ignore consecutive duplicates
 setopt HIST_IGNORE_ALL_DUPS  # remove older duplicate entries
 setopt HIST_IGNORE_SPACE     # ignore commands starting with space
 setopt HIST_REDUCE_BLANKS    # remove superfluous blanks
+setopt HIST_FIND_NO_DUPS     # don't display duplicates when searching history
 
 # Interactive shell options
 if [[ -o interactive ]]; then

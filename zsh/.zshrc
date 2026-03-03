@@ -1687,7 +1687,7 @@ keybinds() {
     echo -e "${_CYAN}\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510${_RC}"
     echo -e "${_CYAN}\u2502${_RC}${_YELLOW}  Custom Keybindings                                 ${_RC}${_CYAN}\u2502${_RC}"
     echo -e "${_CYAN}\u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524${_RC}"
-    echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Ctrl+f     Zoxide interactive (zi)                 ${_RC}${_CYAN}\u2502${_RC}"
+    echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Ctrl+f     Zoxide interactive (ji)                 ${_RC}${_CYAN}\u2502${_RC}"
     echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Ctrl+y     Install package (installpkg)            ${_RC}${_CYAN}\u2502${_RC}"
     echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Ctrl+r     Fuzzy history search                    ${_RC}${_CYAN}\u2502${_RC}"
     echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Ctrl+t     Fuzzy file search                       ${_RC}${_CYAN}\u2502${_RC}"
@@ -1740,12 +1740,12 @@ fzfdel() {
 # Zsh keybindings (zle widgets)
 if [[ -o interactive ]]; then
     # Ctrl+f: zoxide interactive
-    __zsh_zi_widget() {
-        BUFFER="zi"
+    __zsh_ji_widget() {
+        BUFFER="ji"
         zle accept-line
     }
-    zle -N __zsh_zi_widget
-    bindkey '^f' __zsh_zi_widget
+    zle -N __zsh_ji_widget
+    bindkey '^f' __zsh_ji_widget
 
     # Ctrl+y: installpkg
     __zsh_installpkg_widget() {
@@ -1788,8 +1788,8 @@ fi
 # Initialize starship prompt
 eval "$(starship init zsh)"
 
-# Initialize zoxide
+# Initialize zoxide (use 'j' and 'ji' to avoid conflict with zinit's 'zi' alias)
 if (( $+commands[zoxide] )); then
-    eval "$(zoxide init zsh)"
-    alias cd='z'
+    eval "$(zoxide init zsh --cmd j)"
+    alias cd='j'
 fi

@@ -30,7 +30,7 @@ family = "JetBrainsMono Nerd Font"
 style = "Italic"
 
 [terminal.shell]
-program = "/bin/bash"
+program = "/bin/zsh"
 args = []
 
 [scrolling]

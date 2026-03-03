@@ -144,7 +144,6 @@ else
     alias ldir="command ls -la --color=auto | command grep '^d'"             # directories only
 fi
 (( $+commands[btop] )) && alias top='btop'
-(( $+commands[fastfetch] )) && alias neofetch='fastfetch'
 alias wget='wget --show-progress --progress=bar:force:noscroll'
 alias cls='clear'
 

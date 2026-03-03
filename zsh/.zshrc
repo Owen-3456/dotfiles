@@ -97,6 +97,11 @@ zstyle ':fzf-tab:*' switch-group ',' '.'
 zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza -1 --color=always $realpath 2>/dev/null || ls -1 --color=always $realpath'
 zstyle ':fzf-tab:complete:*:*' fzf-preview 'if [[ -d $realpath ]]; then eza -1 --color=always $realpath 2>/dev/null || ls -1 --color=always $realpath; elif [[ -f $realpath ]]; then bat --color=always --style=numbers --line-range=:500 $realpath 2>/dev/null || cat $realpath; fi'
 
+# FZF shell integration (provides Ctrl+R, Ctrl+T, Alt+C keybindings)
+if (( $+commands[fzf] )); then
+    eval "$(fzf --zsh)"
+fi
+
 # =========================
 # Colors and pager settings
 # =========================
@@ -1758,45 +1763,13 @@ if [[ -o interactive ]]; then
     zle -N __zsh_fzfdel_widget
     bindkey '^x' __zsh_fzfdel_widget
 
-    # FZF integration
+    # Ctrl+g: fuzzy directory search (insert selected dir at cursor)
+    # Note: FZF's built-in Alt+C changes directory; this inserts path at cursor instead
     if (( $+commands[fzf] )); then
-        # Ctrl+r: fuzzy history search
-        __fzf_history__() {
-            local output
-            output=$(fc -l 1 2>/dev/null | sed 's/^ *[0-9]*\*\{0,1\} *//' | tac | awk '!seen[$0]++' | fzf --height 40% --reverse --border --prompt="History > " --query="$BUFFER")
-            if [[ -n "$output" ]]; then
-                BUFFER="$output"
-                CURSOR=${#BUFFER}
-            fi
-            zle reset-prompt
-        }
-        zle -N __fzf_history__
-        bindkey '^r' __fzf_history__
-
-        # Ctrl+t: fuzzy file search (insert selected file at cursor)
-        __fzf_file__() {
-            local output
-            if (( $+commands[fd] )); then
-                output=$(fd --type f --hidden --exclude .git | fzf --height 40% --reverse --border --prompt="Files > " --preview 'head -100 {}' --preview-window=right:50%:wrap)
-            else
-                output=$(find . -type f -not -path '*/.git/*' 2>/dev/null | fzf --height 40% --reverse --border --prompt="Files > " --preview 'head -100 {}' --preview-window=right:50%:wrap)
-            fi
-            if [[ -n "$output" ]]; then
-                # Quote the path if it contains spaces or special characters
-                local quoted_output="${(q)output}"
-                BUFFER="${BUFFER[1,$CURSOR]}${quoted_output}${BUFFER[$((CURSOR+1)),-1]}"
-                CURSOR=$((CURSOR + ${#quoted_output}))
-            fi
-            zle reset-prompt
-        }
-        zle -N __fzf_file__
-        bindkey '^t' __fzf_file__
-
-        # Ctrl+g: fuzzy directory search (insert selected dir at cursor)
-        __fzf_cd__() {
+        __fzf_insert_dir__() {
             local dir
             if (( $+commands[fd] )); then
-                dir=$(fd --type d --hidden --exclude .git | fzf --height 40% --reverse --border --prompt="Dirs > " --preview 'ls -la {}' --preview-window=right:50%:wrap)
+                dir=$(fd --type d --hidden --exclude .git | fzf --height 40% --reverse --border --prompt="Dirs > " --preview 'eza -1 --color=always {} 2>/dev/null || ls -la {}' --preview-window=right:50%:wrap)
             else
                 dir=$(find . -type d -not -path '*/.git/*' 2>/dev/null | fzf --height 40% --reverse --border --prompt="Dirs > " --preview 'ls -la {}' --preview-window=right:50%:wrap)
             fi
@@ -1807,8 +1780,8 @@ if [[ -o interactive ]]; then
             fi
             zle reset-prompt
         }
-        zle -N __fzf_cd__
-        bindkey '^g' __fzf_cd__
+        zle -N __fzf_insert_dir__
+        bindkey '^g' __fzf_insert_dir__
     fi
 fi
 

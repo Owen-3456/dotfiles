@@ -1737,6 +1737,16 @@ fzfdel() {
 
 # Zsh keybindings (zle widgets)
 if [[ -o interactive ]]; then
+    # Fix common key bindings (Home, End, Delete, etc.)
+    bindkey '^[[H'    beginning-of-line     # Home
+    bindkey '^[[F'    end-of-line           # End
+    bindkey '^[[3~'   delete-char           # Delete
+    bindkey '^[[1~'   beginning-of-line     # Home (alternate)
+    bindkey '^[[4~'   end-of-line           # End (alternate)
+    bindkey '^?'      backward-delete-char  # Backspace
+    bindkey '^[[3;5~' delete-word           # Ctrl+Delete
+    bindkey '^H'      backward-delete-word  # Ctrl+Backspace
+
     # Ctrl+f: zoxide interactive
     __zsh_ji_widget() {
         BUFFER="ji"

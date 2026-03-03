@@ -145,7 +145,6 @@ else
 fi
 (( $+commands[btop] )) && alias top='btop'
 alias wget='wget --show-progress --progress=bar:force:noscroll'
-alias cls='clear'
 
 # Grep: always use color (ripgrep available as 'rg')
 alias grep='/usr/bin/grep --color=auto'

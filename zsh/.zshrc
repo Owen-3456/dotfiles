@@ -91,6 +91,21 @@ zinit light zdharma-continuum/fast-syntax-highlighting   # fast command syntax h
 export ZSH_AUTOSUGGEST_STRATEGY=(history completion)
 export ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
 
+# zsh-auto-notify configuration - ignore interactive/long-running commands
+export AUTO_NOTIFY_IGNORE=(
+    "npm" "yarn" "pnpm" "bun" "deno"                    # Node package managers (interactive dev servers)
+    "tmux" "screen" "byobu"                             # Terminal multiplexers  
+    "ssh" "mosh" "telnet"                               # Remote connections
+    "vi" "vim" "nvim" "nano" "emacs" "code"             # Editors
+    "less" "more" "man" "tldr" "bat"                    # Pagers/viewers
+    "htop" "btop" "top" "watch"                         # System monitors
+    "python" "python3" "node" "irb" "ruby"              # REPLs
+    "tig" "lazygit"                                     # Git interactive tools (git itself removed)
+    "fzf" "ranger" "mc" "nnn" "lf"                      # File managers
+    "music" "mpv" "vlc" "ffplay"                        # Media players
+    "serve" "ytdl"                                      # Custom interactive functions
+)
+
 # fzf-tab configuration
 zstyle ':fzf-tab:*' fzf-command fzf
 zstyle ':fzf-tab:*' switch-group ',' '.'

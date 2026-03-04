@@ -37,6 +37,7 @@ export XDG_CACHE_HOME="$HOME/.cache"
 # Misc environment
 export EDITOR=nano
 export VISUAL="code -w"
+export BAT_THEME="ansi"  # Consistent colors with terminal theme
 
 # Path setup (idempotent additions)
 typeset -U path  # unique entries only

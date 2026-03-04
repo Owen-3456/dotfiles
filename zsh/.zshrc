@@ -84,7 +84,7 @@ zinit light Aloxaf/fzf-tab                           # fzf-based tab completion
 zinit light hlissner/zsh-autopair                    # auto-close brackets, quotes, parens
 zinit light MichaelAquilina/zsh-you-should-use       # reminds you of existing aliases
 zinit light MichaelAquilina/zsh-auto-notify          # desktop notifications for long commands
-zinit light zpm-zsh/colorize                         # syntax highlighting for cat/less/tail
+zinit light fdellwing/zsh-bat                        # bat aliases for cat/less/man
 zinit light zdharma-continuum/history-search-multi-word  # better history search with highlighting
 zinit light zdharma-continuum/fast-syntax-highlighting   # fast command syntax highlighting (must be last)
 

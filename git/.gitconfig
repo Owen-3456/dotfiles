@@ -9,4 +9,4 @@
 [credential]
 	helper = store
 [safe]
-	directory = /*
+	directory = /home/owen

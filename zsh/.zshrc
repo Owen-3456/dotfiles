@@ -84,7 +84,6 @@ zinit light Aloxaf/fzf-tab                           # fzf-based tab completion
 zinit light hlissner/zsh-autopair                    # auto-close brackets, quotes, parens
 zinit light MichaelAquilina/zsh-you-should-use       # reminds you of existing aliases
 zinit light MichaelAquilina/zsh-auto-notify          # desktop notifications for long commands
-zinit light fdellwing/zsh-bat                        # bat aliases for cat/less/man
 zinit light zdharma-continuum/history-search-multi-word  # better history search with highlighting
 zinit light zdharma-continuum/fast-syntax-highlighting   # fast command syntax highlighting (must be last)
 
@@ -160,7 +159,16 @@ else
     alias ldir="command ls -la --color=auto | command grep '^d'"             # directories only
 fi
 (( $+commands[btop] )) && alias top='btop'
+(( $+commands[fastfetch] )) && alias neofetch='fastfetch'
 alias wget='wget --show-progress --progress=bar:force:noscroll'
+alias cls='clear'
+
+# Bat aliases for syntax highlighting
+if (( $+commands[bat] )); then
+    alias cat='bat --style=plain --paging=never'
+    alias less='bat --style=full --paging=always'
+    export MANPAGER="sh -c 'col -bx | bat -l man -p'"
+fi
 
 # Grep: always use color (ripgrep available as 'rg')
 alias grep='/usr/bin/grep --color=auto'
@@ -1594,12 +1602,12 @@ sysinfo() {
     echo ""
     echo -e "  ${_BOLD}${_CYAN}Memory${_RC}"
     local mem_total mem_used mem_dummy mem_pct swap_total swap_used swap_dummy swap_pct
-    read -r mem_total mem_used mem_dummy mem_pct <<< "$(free -m | awk '/^Mem:/{printf "%s %s %s %.0f", $2, $3, $4, $3/$2*100}')"
+    read -r mem_total mem_used mem_dummy mem_pct <<< "$(command free -m | awk '/^Mem:/{printf "%s %s %s %.0f", $2, $3, $4, $3/$2*100}')"
     local mem_color="${_GREEN}"
     if [[ "$mem_pct" -ge 90 ]]; then mem_color="${_RED}"
     elif [[ "$mem_pct" -ge 70 ]]; then mem_color="${_YELLOW}"; fi
     echo -e "    ${_DIM}RAM:${_RC}       ${mem_used}M / ${mem_total}M  ${mem_color}(${mem_pct}%)${_RC}"
-    read -r swap_total swap_used swap_dummy swap_pct <<< "$(free -m | awk '/^Swap:/{if($2>0) printf "%s %s %s %.0f", $2, $3, $4, $3/$2*100; else print "0 0 0 0"}')"
+    read -r swap_total swap_used swap_dummy swap_pct <<< "$(command free -m | awk '/^Swap:/{if($2>0) printf "%s %s %s %.0f", $2, $3, $4, $3/$2*100; else print "0 0 0 0"}')"
     if [[ "$swap_total" -gt 0 ]]; then
         echo -e "    ${_DIM}Swap:${_RC}      ${swap_used}M / ${swap_total}M  (${swap_pct}%)"
     else
@@ -1609,14 +1617,13 @@ sysinfo() {
     # --- Disk ---
     echo ""
     echo -e "  ${_BOLD}${_CYAN}Disk${_RC}"
-    local line
+    local line mount used total pct disk_color
     while IFS= read -r line; do
-        local mount used total pct
         mount=$(echo "$line" | awk '{print $6}')
         used=$(echo "$line" | awk '{print $3}')
         total=$(echo "$line" | awk '{print $2}')
         pct=$(echo "$line" | awk '{gsub(/%/,"",$5); print $5}')
-        local disk_color="${_GREEN}"
+        disk_color="${_GREEN}"
         if [[ "$pct" -ge 90 ]]; then disk_color="${_RED}"
         elif [[ "$pct" -ge 70 ]]; then disk_color="${_YELLOW}"; fi
         echo -e "    ${_DIM}${mount}:${_RC}  ${used} / ${total}  ${disk_color}(${pct}%)${_RC}"

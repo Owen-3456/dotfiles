@@ -445,11 +445,11 @@ mkcd() {
 # Up: go up N directory levels (e.g., up 3)
 up() {
     local levels=${1:-1}
-    local path=""
+    local dir_path=""
     for ((i = 0; i < levels; i++)); do
-        path="../$path"
+        dir_path="../$dir_path"
     done
-    builtin cd "${path%/}" || return 1
+    builtin cd "${dir_path%/}" || return 1
 }
 
 # Whatsmyip: show internal (active interface) and external IPv4
@@ -1052,6 +1052,8 @@ updatesys() {
 
                 local aur_count aur_rc=0
                 aur_count=$(echo "$aur_updates" | wc -l)
+                # Refresh sudo timestamp before AUR updates (which may take a long time to build)
+                sudo -v || return 1
                 _start_spinner "Upgrading $aur_count AUR packages"
                 echo "=== $(date '+%H:%M:%S') :: yay -Sua ===" >> "$_UPDATESYS_LOG"
                 yay -Sua --noconfirm >> "$_UPDATESYS_LOG" 2>&1 || aur_rc=$?

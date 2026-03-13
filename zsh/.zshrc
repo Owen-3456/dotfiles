@@ -96,7 +96,7 @@ export AUTO_NOTIFY_IGNORE=(
     "npm" "yarn" "pnpm" "bun" "deno"                    # Node package managers (interactive dev servers)
     "tmux" "screen" "byobu"                             # Terminal multiplexers  
     "ssh" "mosh" "telnet"                               # Remote connections
-    "vi" "vim" "nvim" "nano" "emacs" "code"             # Editors
+    "vi" "vim" "nvim" "nano" "emacs" "code" "opencode"  # Editors
     "less" "more" "man" "tldr" "bat"                    # Pagers/viewers
     "htop" "btop" "top" "watch"                         # System monitors
     "python" "python3" "node" "irb" "ruby"              # REPLs
@@ -104,6 +104,7 @@ export AUTO_NOTIFY_IGNORE=(
     "fzf" "ranger" "mc" "nnn" "lf"                      # File managers
     "music" "mpv" "vlc" "ffplay"                        # Media players
     "serve" "ytdl"                                      # Custom interactive functions
+    "installpkg" "updatepkg" "removepkg"                # Interactive custom functions
 )
 
 # fzf-tab configuration

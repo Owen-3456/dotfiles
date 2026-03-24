@@ -1468,48 +1468,71 @@ topdf() {
         ((i++))
     done
 
-    # Show options
+    # Show options based on number of files
     echo ""
-    echo -e "  ${_CYAN}Options:${_RC}"
-    echo -e "    ${_DIM}[a]${_RC} Convert all"
-    echo -e "    ${_DIM}[s]${_RC} Select specific files (fzf)"
-    echo -e "    ${_DIM}[c]${_RC} Cancel"
-    echo ""
-    read "choice?  Choose option: "
-
     local to_convert=()
-    case "$choice" in
-        a|A)
-            to_convert=("${files[@]}")
-            ;;
-        s|S)
-            # Use fzf for file selection
-            local selected
-            selected=$(printf '%s\n' "${files[@]}" | sed 's|^\./||' | fzf --multi \
-                --header="Select files to convert (TAB for multi-select, ENTER to confirm)" \
-                --preview 'file {}' \
-                --preview-window=right:40%:wrap)
-
-            if [[ -z "$selected" ]]; then
+    
+    if [[ ${#files[@]} -eq 1 ]]; then
+        # Only one file - show simplified options
+        echo -e "  ${_CYAN}Options:${_RC}"
+        echo -e "    ${_DIM}[a]${_RC} Convert file"
+        echo -e "    ${_DIM}[c]${_RC} Cancel"
+        echo ""
+        read "choice?  Choose option: "
+        
+        case "$choice" in
+            a|A|"")
+                to_convert=("${files[@]}")
+                ;;
+            c|C|*)
                 echo ""
-                _ui_info "No files selected"
+                _ui_info "Cancelled"
                 echo ""
                 return 0
-            fi
+                ;;
+        esac
+    else
+        # Multiple files - show all options
+        echo -e "  ${_CYAN}Options:${_RC}"
+        echo -e "    ${_DIM}[a]${_RC} Convert all"
+        echo -e "    ${_DIM}[s]${_RC} Select specific files (fzf)"
+        echo -e "    ${_DIM}[c]${_RC} Cancel"
+        echo ""
+        read "choice?  Choose option: "
+        
+        case "$choice" in
+            a|A|"")
+                to_convert=("${files[@]}")
+                ;;
+            s|S)
+                # Use fzf for file selection
+                local selected
+                selected=$(printf '%s\n' "${files[@]}" | sed 's|^\./||' | fzf --multi \
+                    --header="Select files to convert (TAB for multi-select, ENTER to confirm)" \
+                    --preview 'file {}' \
+                    --preview-window=right:40%:wrap)
 
-            # Convert selected basenames back to full paths
-            local line
-            for line in "${(f)selected}"; do
-                to_convert+=("./$line")
-            done
-            ;;
-        c|C|*)
-            echo ""
-            _ui_info "Cancelled"
-            echo ""
-            return 0
-            ;;
-    esac
+                if [[ -z "$selected" ]]; then
+                    echo ""
+                    _ui_info "No files selected"
+                    echo ""
+                    return 0
+                fi
+
+                # Convert selected basenames back to full paths
+                local line
+                for line in "${(f)selected}"; do
+                    to_convert+=("./$line")
+                done
+                ;;
+            c|C|*)
+                echo ""
+                _ui_info "Cancelled"
+                echo ""
+                return 0
+                ;;
+        esac
+    fi
 
     # Set up UI
     _UI_STEP=0

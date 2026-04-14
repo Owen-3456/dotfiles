@@ -161,7 +161,6 @@ else
 fi
 (( $+commands[btop] )) && alias top='btop'
 alias wget='wget --show-progress --progress=bar:force:noscroll'
-alias cls='clear'
 
 # Bat aliases for syntax highlighting
 if (( $+commands[bat] )); then

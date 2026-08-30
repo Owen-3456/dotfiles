@@ -13,7 +13,6 @@ export HISTFILE="${HISTFILE:-$HOME/.zsh_history}"
 export HISTSIZE=10000
 export SAVEHIST=10000
 setopt SHARE_HISTORY         # share history across all sessions (implies INC_APPEND_HISTORY)
-setopt HIST_IGNORE_DUPS      # ignore consecutive duplicates
 setopt HIST_IGNORE_ALL_DUPS  # remove older duplicate entries
 setopt HIST_IGNORE_SPACE     # ignore commands starting with space
 setopt HIST_REDUCE_BLANKS    # remove superfluous blanks
@@ -94,7 +93,7 @@ export ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
 # zsh-auto-notify configuration - ignore interactive/long-running commands
 export AUTO_NOTIFY_IGNORE=(
     "npm" "yarn" "pnpm" "bun" "deno"                    # Node package managers (interactive dev servers)
-    "tmux" "screen" "byobu"                             # Terminal multiplexers  
+    "tmux" "screen" "byobu"                             # Terminal multiplexers
     "ssh" "mosh" "telnet"                               # Remote connections
     "vi" "vim" "nvim" "nano" "emacs" "code" "opencode"  # Editors
     "less" "more" "man" "tldr" "bat"                    # Pagers/viewers
@@ -221,25 +220,6 @@ _pkg_install() {
         $_AUR_HELPER -S --noconfirm "$@"
     else
         sudo pacman -S --noconfirm "$@"
-    fi
-}
-
-# Prompt to install missing packages, then install if confirmed.
-# Usage: _require_pkg "description" pkg1 [pkg2 ...]
-_require_pkg() {
-    local desc="$1"
-    shift
-    local missing=()
-    for pkg in "$@"; do
-        (( $+commands[$pkg] )) || missing+=("$pkg")
-    done
-    [[ ${#missing[@]} -eq 0 ]] && return 0
-    read "ans?${missing[*]} required for $desc. Install now? (y/N): "
-    if [[ $ans =~ ^[Yy]$ ]]; then
-        _pkg_install "${missing[@]}"
-    else
-        echo "Cancelled."
-        return 1
     fi
 }
 
@@ -701,8 +681,8 @@ topdf() {
     _require_cmd libreoffice || return 1
     _require_cmd fzf || return 1
 
-    export _UPDATESYS_LOG
-    _UPDATESYS_LOG=$(mktemp /tmp/topdf-XXXXXX.log)
+    local log_file
+    log_file=$(mktemp /tmp/topdf-XXXXXX.log)
     trap '_stop_spinner; trap - INT; trap - EXIT; return 130' INT
     trap '_stop_spinner; trap - INT; trap - EXIT' EXIT
 
@@ -722,7 +702,7 @@ topdf() {
 
     # Header
     echo ""
-    echo -e "  ${_BOLD}Convert to PDF${_RC} ${_DIM}| ${#files[@]} file(s) found | log: ${_UPDATESYS_LOG}${_RC}"
+    echo -e "  ${_BOLD}Convert to PDF${_RC} ${_DIM}| ${#files[@]} file(s) found | log: ${log_file}${_RC}"
     echo -e "  ${_DIM}──────────────────────────────────────${_RC}"
 
     # List files
@@ -736,7 +716,7 @@ topdf() {
     # Show options based on number of files
     echo ""
     local to_convert=()
-    
+
     if [[ ${#files[@]} -eq 1 ]]; then
         # Only one file - show simplified options
         echo -e "  ${_CYAN}Options:${_RC}"
@@ -744,7 +724,7 @@ topdf() {
         echo -e "    ${_DIM}[c]${_RC} Cancel"
         echo ""
         read "choice?  Choose option: "
-        
+
         case "$choice" in
             a|A|"")
                 to_convert=("${files[@]}")
@@ -764,7 +744,7 @@ topdf() {
         echo -e "    ${_DIM}[c]${_RC} Cancel"
         echo ""
         read "choice?  Choose option: "
-        
+
         case "$choice" in
             a|A|"")
                 to_convert=("${files[@]}")
@@ -813,8 +793,8 @@ topdf() {
         local dirname="${f:h}"
 
         _start_spinner "Converting to PDF"
-        echo "=== $(date '+%H:%M:%S') :: ${f:t} ===" >> "$_UPDATESYS_LOG"
-        if libreoffice --headless --convert-to pdf "$f" --outdir "$dirname" >> "$_UPDATESYS_LOG" 2>&1; then
+        echo "=== $(date '+%H:%M:%S') :: ${f:t} ===" >> "$log_file"
+        if libreoffice --headless --convert-to pdf "$f" --outdir "$dirname" >> "$log_file" 2>&1; then
             _stop_spinner
             if command rm "$f" 2>/dev/null; then
                 _ui_ok "Converted and removed original"
@@ -842,7 +822,7 @@ topdf() {
     if [[ "$failed" -gt 0 ]]; then
         echo -e "    ${_CROSS} ${_DIM}Failed: ${failed}${_RC}"
     fi
-    echo -e "    ${_DIM}Full log: ${_UPDATESYS_LOG}${_RC}"
+    echo -e "    ${_DIM}Full log: ${log_file}${_RC}"
     echo ""
 }
 

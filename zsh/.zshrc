@@ -252,15 +252,6 @@ _require_cmd() {
     fi
 }
 
-# Pre-cache sudo credentials so password prompts don't interrupt spinners.
-# Usage: _sudo_auth || return 1
-_sudo_auth() {
-    if ! sudo -n true 2>/dev/null; then
-        echo -e "  ${_ARROW} sudo authentication required"
-        sudo -v || return 1
-    fi
-}
-
 # =========================
 # UI helpers (spinner, status messages)
 # =========================
@@ -316,31 +307,6 @@ _stop_spinner() {
         __spinner_pid=""
     fi
     printf "\r\033[K"
-}
-
-# Run a command silently with a spinner, logging output to file.
-# Usage: _run_with_spinner "message" command [args...]
-_run_with_spinner() {
-    local msg="$1"
-    shift
-    local log_file="${_UPDATESYS_LOG:-/tmp/zsh-task-$$.log}"
-
-    _start_spinner "$msg"
-
-    local rc=0
-    echo "=== $(date '+%H:%M:%S') :: $msg ===" >> "$log_file"
-    "$@" >> "$log_file" 2>&1 || rc=$?
-
-    _stop_spinner
-
-    if [[ $rc -eq 0 ]]; then
-        _ui_ok "$msg"
-    else
-        _ui_fail "$msg"
-        echo -e "       ${_DIM}See log: ${log_file}${_RC}"
-    fi
-
-    return "$rc"
 }
 
 # =========================
@@ -528,118 +494,72 @@ serve() {
     fi
 }
 
-# Installpkg: interactive package installation (fzf-based)
+# Installpkg: pick packages with fzf, then install them directly.
+# Runs the package manager in the foreground so its output and any prompts are visible.
 installpkg() {
     _require_cmd fzf || return 1
-    export _UPDATESYS_LOG
-    _UPDATESYS_LOG=$(mktemp /tmp/installpkg-XXXXXX.log)
-    trap '_stop_spinner; trap - INT; trap - EXIT; return 130' INT
-    trap '_stop_spinner; trap - INT; trap - EXIT' EXIT
 
-    local selected pkg_list pkg_count
-
-    echo ""
-    echo -e "  ${_BOLD}Install Packages${_RC} ${_DIM}| CachyOS | log: ${_UPDATESYS_LOG}${_RC}"
-    echo -e "  ${_DIM}──────────────────────────────────────${_RC}"
-    _sudo_auth || return 1
-
-    _UI_STEP=0 _UI_TOTAL=2
-
-    # Step 1: Select packages
-    _ui_step "Select packages"
+    local list_cmd preview_cmd header
     if [[ -n "$_AUR_HELPER" ]]; then
-        selected=$($_AUR_HELPER -Slq 2>/dev/null | fzf --multi --header="Type to search repos + AUR (TAB for multi-select)" \
-            --preview "$_AUR_HELPER -Si {1} 2>/dev/null | head -40" \
-            --preview-window=right:60%:wrap)
+        list_cmd=("$_AUR_HELPER" -Slq)
+        preview_cmd="$_AUR_HELPER -Si {1} 2>/dev/null | head -40"
+        header="Select packages to install from repos + AUR (TAB to multi-select, ENTER to confirm)"
     else
-        selected=$(pacman -Slq 2>/dev/null | fzf --multi --header="Type to search repos (TAB for multi-select)" \
-            --preview 'pacman -Si {1} 2>/dev/null | head -40' \
-            --preview-window=right:60%:wrap)
+        list_cmd=(pacman -Slq)
+        preview_cmd='pacman -Si {1} 2>/dev/null | head -40'
+        header="Select packages to install from repos (TAB to multi-select, ENTER to confirm)"
     fi
 
+    local selected
+    selected=$("${list_cmd[@]}" 2>/dev/null | fzf --multi \
+        --header="$header" \
+        --preview "$preview_cmd" \
+        --preview-window=right:60%:wrap)
+
     if [[ -z "$selected" ]]; then
-        _ui_info "No packages selected"
+        echo "No packages selected."
         return 0
     fi
 
-    pkg_list=$(echo "$selected" | tr '\n' ' ')
-    pkg_count=$(echo "$selected" | wc -l)
-    _ui_ok "Selected $pkg_count package(s)"
+    local -a pkgs
+    pkgs=("${(f)selected}")
 
-    # Step 2: Install
-    _ui_step "Installing packages"
-    local -a pkg_array
-    pkg_array=("${(f)selected}")
-    _run_with_spinner "Installing $pkg_list" _pkg_install "${pkg_array[@]}" || return 1
-
-    echo ""
-    echo -e "  ${_GREEN}${_BOLD}  Done!${_RC} ${_DIM}Installed: ${pkg_list}${_RC}"
-    echo ""
+    echo "Installing: ${pkgs[*]}"
+    _pkg_install "${pkgs[@]}"
 }
 
-# Removepkg: interactive package removal (fzf-based)
+# Removepkg: pick installed packages with fzf, then remove them directly.
+# Runs pacman in the foreground so its output and any prompts are visible.
 removepkg() {
     _require_cmd fzf || return 1
-    export _UPDATESYS_LOG
-    _UPDATESYS_LOG=$(mktemp /tmp/removepkg-XXXXXX.log)
-    trap '_stop_spinner; trap - INT; trap - EXIT; return 130' INT
-    trap '_stop_spinner; trap - INT; trap - EXIT' EXIT
 
-    local selected pkg_list pkg_count
-
-    echo ""
-    echo -e "  ${_BOLD}Remove Packages${_RC} ${_DIM}| CachyOS | log: ${_UPDATESYS_LOG}${_RC}"
-    echo -e "  ${_DIM}──────────────────────────────────────${_RC}"
-    _sudo_auth || return 1
-
-    _UI_STEP=0 _UI_TOTAL=2
-
-    # Step 1: Select packages
-    _ui_step "Select packages"
-    selected=$(pacman -Qq 2>/dev/null | fzf --multi --header="Type to filter installed packages (TAB for multi-select)" \
+    local selected
+    selected=$(pacman -Qq 2>/dev/null | fzf --multi \
+        --header="Select packages to remove (TAB to multi-select, ENTER to confirm)" \
         --preview 'pacman -Qi {1} 2>/dev/null | head -20; echo "\n--- Reverse deps ---"; pactree -r {1} 2>/dev/null | head -10' \
         --preview-window=right:60%:wrap)
 
     if [[ -z "$selected" ]]; then
-        _ui_info "No packages selected"
+        echo "No packages selected."
         return 0
     fi
 
-    pkg_list=$(echo "$selected" | tr '\n' ' ')
-    pkg_count=$(echo "$selected" | wc -l)
-    _ui_ok "Selected $pkg_count package(s)"
+    local -a pkgs
+    pkgs=("${(f)selected}")
 
-    # Step 2: Remove
-    _ui_step "Removing packages"
-    local -a pkg_array
-    pkg_array=("${(f)selected}")
-    _run_with_spinner "Removing $pkg_list" sudo pacman -R --noconfirm "${pkg_array[@]}" || return 1
-
-    echo ""
-    echo -e "  ${_GREEN}${_BOLD}  Done!${_RC} ${_DIM}Removed: ${pkg_list}${_RC}"
-    echo ""
+    echo "Removing: ${pkgs[*]}"
+    sudo pacman -R --noconfirm "${pkgs[@]}"
 }
 
-# Updatepkg: interactive package update (fzf-based)
+# Updatepkg: pick outdated packages with fzf, then update them directly.
+# Runs the package manager in the foreground so its output and any prompts are visible.
 updatepkg() {
     _require_cmd fzf || return 1
-    export _UPDATESYS_LOG
-    _UPDATESYS_LOG=$(mktemp /tmp/updatepkg-XXXXXX.log)
-    trap '_stop_spinner; trap - INT; trap - EXIT; return 130' INT
-    trap '_stop_spinner; trap - INT; trap - EXIT' EXIT
 
-    local upgradable selected pkg_list pkg_count
+    # Refresh the sync database so the -Qu listing below is accurate
+    sudo pacman -Sy || return 1
 
-    echo ""
-    echo -e "  ${_BOLD}Update Packages${_RC} ${_DIM}| CachyOS | log: ${_UPDATESYS_LOG}${_RC}"
-    echo -e "  ${_DIM}──────────────────────────────────────${_RC}"
-    _sudo_auth || return 1
-
-    _UI_STEP=0 _UI_TOTAL=3
-
-    # Step 1: Sync package database
-    _ui_step "Syncing package database"
-    _run_with_spinner "Syncing package database" sudo pacman -Sy || return 1
+    local upgradable
     if [[ -n "$_AUR_HELPER" ]]; then
         upgradable=$($_AUR_HELPER -Qu 2>/dev/null | awk '{print $1}')
     else
@@ -647,143 +567,29 @@ updatepkg() {
     fi
 
     if [[ -z "$upgradable" ]]; then
-        _ui_ok "System already up to date"
-        echo ""
+        echo "System already up to date."
         return 0
     fi
 
-    local avail_count
-    avail_count=$(echo "$upgradable" | command grep -c '.')
-    _ui_ok "$avail_count update(s) available"
-
-    # Step 2: Select packages
-    _ui_step "Select packages to update"
     local preview_cmd='pacman -Si {1} 2>/dev/null | head -40'
     [[ -n "$_AUR_HELPER" ]] && preview_cmd="$_AUR_HELPER -Si {1} 2>/dev/null | head -40"
-    selected=$(echo "$upgradable" | fzf --multi --header="Select packages to update (TAB for multi-select)" \
+
+    local selected
+    selected=$(echo "$upgradable" | fzf --multi \
+        --header="Select packages to update (TAB to multi-select, ENTER to confirm)" \
         --preview "$preview_cmd" \
         --preview-window=right:60%:wrap)
 
     if [[ -z "$selected" ]]; then
-        _ui_info "No packages selected"
+        echo "No packages selected."
         return 0
     fi
 
-    pkg_list=$(echo "$selected" | tr '\n' ' ')
-    pkg_count=$(echo "$selected" | wc -l)
-    _ui_ok "Selected $pkg_count package(s)"
+    local -a pkgs
+    pkgs=("${(f)selected}")
 
-    # Step 3: Update
-    _ui_step "Updating packages"
-    local -a pkg_array
-    pkg_array=("${(f)selected}")
-    _run_with_spinner "Updating $pkg_list" _pkg_install "${pkg_array[@]}" || return 1
-
-    echo ""
-    echo -e "  ${_GREEN}${_BOLD}  Done!${_RC} ${_DIM}Updated: ${pkg_list}${_RC}"
-    echo ""
-}
-
-# Cleansys: perform system cleanup (cache, logs, orphans, trash)
-cleansys() {
-    local start_time=$(date +%s)
-    export _UPDATESYS_LOG
-    _UPDATESYS_LOG=$(mktemp /tmp/cleansys-XXXXXX.log)
-    trap '_stop_spinner; trap - INT; trap - EXIT; return 130' INT
-    trap '_stop_spinner; trap - INT; trap - EXIT' EXIT
-
-    # Get disk usage before cleanup
-    local disk_before
-    disk_before=$(df --output=used / 2>/dev/null | tail -1 | tr -d ' ')
-
-    echo ""
-    echo -e "  ${_BOLD}System Cleanup${_RC} ${_DIM}| CachyOS | log: ${_UPDATESYS_LOG}${_RC}"
-    echo -e "  ${_DIM}──────────────────────────────────────${_RC}"
-    _sudo_auth || return 1
-
-    _UI_STEP=0 _UI_TOTAL=5
-
-    # Step 1: Package manager cleanup
-    _ui_step "Package manager cache"
-    if [[ -n "$_AUR_HELPER" ]]; then
-        _run_with_spinner "Cleaning package cache" $_AUR_HELPER -Sc --noconfirm
-    else
-        _run_with_spinner "Cleaning package cache" sudo pacman -Sc --noconfirm
-    fi
-
-    local orphans=$(pacman -Qtdq 2>/dev/null)
-    if [[ -n "$orphans" ]]; then
-        _start_spinner "Removing orphaned packages"
-        echo "$orphans" | sudo pacman -Rns --noconfirm - >> "$_UPDATESYS_LOG" 2>&1
-        local rc=$?
-        _stop_spinner
-        if [[ $rc -eq 0 ]]; then
-            _ui_ok "Orphaned packages removed"
-        else
-            _ui_warn "Some orphans could not be removed"
-        fi
-    else
-        _ui_ok "No orphaned packages"
-    fi
-
-    _run_with_spinner "Pruning old package versions" bash -c 'paccache -rk 2 2>/dev/null; true'
-
-    # Step 2: Temporary files
-    _ui_step "Temporary files"
-    _run_with_spinner "Cleaning /tmp and /var/tmp" bash -c '
-        [ -d /var/tmp ] && sudo find /var/tmp -type f -atime +5 -delete 2>/dev/null
-        [ -d /tmp ] && sudo find /tmp -type f -atime +5 -delete 2>/dev/null
-        true'
-
-    # Step 3: Logs
-    _ui_step "System logs"
-    _run_with_spinner "Truncating old log files" bash -c '
-        [ -d /var/log ] && sudo find /var/log -type f -name "*.log" -exec truncate -s 0 {} \; 2>/dev/null
-        true'
-    if (( $+commands[journalctl] )); then
-        _run_with_spinner "Vacuuming journald logs (keeping 3 days)" sudo journalctl --vacuum-time=3d
-    fi
-
-    # Step 4: User cache and trash
-    _ui_step "User cache and trash"
-    _run_with_spinner "Cleaning user cache (files older than 5 days)" bash -c "
-        [ -d \"$HOME/.cache\" ] && find \"$HOME/.cache/\" -type f -atime +5 -delete 2>/dev/null
-        true"
-    _run_with_spinner "Emptying trash" bash -c "
-        [ -d \"$HOME/.local/share/Trash\" ] && find \"$HOME/.local/share/Trash\" -mindepth 1 -delete 2>/dev/null
-        true"
-
-    # Step 5: Flatpak cleanup
-    _ui_step "Flatpak cleanup"
-    if (( $+commands[flatpak] )); then
-        _run_with_spinner "Removing unused flatpak runtimes" bash -c 'flatpak uninstall --unused -y 2>/dev/null; true'
-    else
-        _ui_info "Flatpak not installed, skipping"
-    fi
-
-    # Summary
-    local end_time=$(date +%s)
-    local duration=$((end_time - start_time))
-    local disk_after
-    disk_after=$(df --output=used / 2>/dev/null | tail -1 | tr -d ' ')
-    local freed=0
-    if [[ -n "$disk_before" ]] && [[ -n "$disk_after" ]] && [[ "$disk_before" -gt "$disk_after" ]]; then
-        freed=$(( (disk_before - disk_after) / 1024 ))
-    fi
-
-    echo ""
-    echo -e "  ${_GREEN}${_BOLD}──────────────────────────────────────${_RC}"
-    echo -e "  ${_GREEN}${_BOLD}  All clean!${_RC}  ${_DIM}Completed in ${duration}s${_RC}"
-    echo -e "  ${_GREEN}${_BOLD}──────────────────────────────────────${_RC}"
-    echo ""
-    if [[ "$freed" -gt 0 ]]; then
-        echo -e "    ${_TICK} ${_DIM}Freed: ~${freed}MB${_RC}"
-    fi
-    local disk_info
-    disk_info=$(df -h / | tail -1 | awk '{print $3 " used / " $2 " total (" $5 ")"}')
-    echo -e "    ${_TICK} ${_DIM}Disk: ${disk_info}${_RC}"
-    echo -e "    ${_DIM}Full log: ${_UPDATESYS_LOG}${_RC}"
-    echo ""
+    echo "Updating: ${pkgs[*]}"
+    _pkg_install "${pkgs[@]}"
 }
 
 # Fzfkill: interactively search and kill processes with fzf

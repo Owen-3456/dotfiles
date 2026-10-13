@@ -9,14 +9,14 @@
 [[ -f /etc/zsh/zshrc ]] && . /etc/zsh/zshrc
 
 # History configuration
-export HISTFILE="${HISTFILE:-$HOME/.zsh_history}"
+# Atuin is the single source of truth for shell history (recording, search,
+# cross-machine sync). Keep only a small in-memory buffer for things that
+# read zsh's own history array (e.g. autosuggestions) — don't persist a
+# separate .zsh_history file, since that would just duplicate Atuin's DB.
+unset HISTFILE
 export HISTSIZE=10000
-export SAVEHIST=10000
-setopt SHARE_HISTORY         # share history across all sessions (implies INC_APPEND_HISTORY)
-setopt HIST_IGNORE_ALL_DUPS  # remove older duplicate entries
-setopt HIST_IGNORE_SPACE     # ignore commands starting with space
-setopt HIST_REDUCE_BLANKS    # remove superfluous blanks
-setopt HIST_FIND_NO_DUPS     # don't display duplicates when searching history
+export SAVEHIST=0
+setopt HIST_IGNORE_SPACE     # ignore commands starting with space (Atuin honours this too)
 
 # Interactive shell options
 if [[ -o interactive ]]; then
@@ -83,8 +83,8 @@ zinit light Aloxaf/fzf-tab                           # fzf-based tab completion
 zinit light hlissner/zsh-autopair                    # auto-close brackets, quotes, parens
 zinit light MichaelAquilina/zsh-you-should-use       # reminds you of existing aliases
 zinit light MichaelAquilina/zsh-auto-notify          # desktop notifications for long commands
-zinit light zdharma-continuum/history-search-multi-word  # better history search with highlighting
 zinit light zdharma-continuum/fast-syntax-highlighting   # fast command syntax highlighting (must be last)
+# Note: history-search-multi-word was removed — Atuin's own search (Ctrl+R) replaces it
 
 # zsh-autosuggestions configuration
 export ZSH_AUTOSUGGEST_STRATEGY=(history completion)
@@ -974,7 +974,7 @@ keybinds() {
     echo -e "${_CYAN}\u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524${_RC}"
     echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Ctrl+f     Zoxide interactive (ji)                 ${_RC}${_CYAN}\u2502${_RC}"
     echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Ctrl+y     Install package (installpkg)            ${_RC}${_CYAN}\u2502${_RC}"
-    echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Ctrl+r     Fuzzy history search                    ${_RC}${_CYAN}\u2502${_RC}"
+    echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Ctrl+r     Atuin history search                    ${_RC}${_CYAN}\u2502${_RC}"
     echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Ctrl+t     Fuzzy file search                       ${_RC}${_CYAN}\u2502${_RC}"
     echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Ctrl+g     Fuzzy directory search                  ${_RC}${_CYAN}\u2502${_RC}"
     echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Ctrl+x     Fuzzy delete (fzfdel)                   ${_RC}${_CYAN}\u2502${_RC}"
@@ -1089,6 +1089,9 @@ if (( $+commands[zoxide] )); then
     alias cd='j'
 fi
 
-# Initialise atuin (shell history sync)
-eval "$(atuin init zsh)"
-
+# Initialize Atuin (shell history: recording, search, cross-machine sync).
+# Must load after fzf's `eval "$(fzf --zsh)"` above — Atuin rebinds Ctrl+R to
+# its own search UI, and whichever init runs last wins that binding.
+if (( $+commands[atuin] )); then
+    eval "$(atuin init zsh)"
+fi

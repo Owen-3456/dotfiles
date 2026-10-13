@@ -1088,3 +1088,7 @@ if (( $+commands[zoxide] )); then
     eval "$(zoxide init zsh --cmd j)"
     alias cd='j'
 fi
+
+# Initialise atuin (shell history sync)
+eval "$(atuin init zsh)"
+

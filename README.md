@@ -78,7 +78,7 @@ Also: `cp -i` / `mv -i` (confirm overwrite), `mkdir -p`, `reload` (`exec zsh`), 
 | ---------------------------- | ------------------------------------------------------------------------------------ |
 | `installpkg`                 | `fzf` picker over repos + AUR, installs the selection (**Ctrl+y**)                   |
 | `removepkg`                  | `fzf` picker over installed packages; preview shows reverse deps                     |
-| `updatepkg`                  | `fzf` picker limited to packages with updates available                              |
+| `updatepkg`                  | Browse pending repo + AUR updates in `fzf`, then run a full `yay -Syu`               |
 | `fzfkill`                    | `fzf` process picker sorted by CPU, with signal choice                               |
 | `fzfdel`                     | `fzf` file picker, moves selection to trash (**Ctrl+x**)                             |
 | `sysinfo`                    | System health dashboard: CPU, memory, disk, network, units, updates                  |

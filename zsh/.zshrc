@@ -534,22 +534,21 @@ removepkg() {
     sudo pacman -R --noconfirm "${pkgs[@]}"
 }
 
-# Updatepkg: pick outdated packages with fzf, then update them directly.
-# Runs the package manager in the foreground so its output and any prompts are visible.
+# Updatepkg: browse pending updates with fzf, then run a full system upgrade.
+# Arch doesn't support upgrading only some packages (a partial upgrade can break
+# shared libraries), so this always upgrades everything. checkupdates uses a
+# temporary database copy, so listing never syncs the real one.
 updatepkg() {
     _require_cmd fzf || return 1
+    _require_cmd checkupdates || return 1
 
-    # Refresh the sync database so the -Qu listing below is accurate
-    sudo pacman -Sy || return 1
+    local repo_updates aur_updates
+    repo_updates=$(checkupdates 2>/dev/null)
+    [[ -n "$_AUR_HELPER" ]] && aur_updates=$($_AUR_HELPER -Qua 2>/dev/null)
 
-    local upgradable
-    if [[ -n "$_AUR_HELPER" ]]; then
-        upgradable=$($_AUR_HELPER -Qu 2>/dev/null | awk '{print $1}')
-    else
-        upgradable=$(pacman -Qu 2>/dev/null | awk '{print $1}')
-    fi
-
-    if [[ -z "$upgradable" ]]; then
+    local all_updates
+    all_updates=$(printf '%s\n%s\n' "$repo_updates" "$aur_updates" | sed '/^$/d')
+    if [[ -z "$all_updates" ]]; then
         echo "System already up to date."
         return 0
     fi
@@ -557,22 +556,20 @@ updatepkg() {
     local preview_cmd='pacman -Si {1} 2>/dev/null | head -40'
     [[ -n "$_AUR_HELPER" ]] && preview_cmd="$_AUR_HELPER -Si {1} 2>/dev/null | head -40"
 
-    local selected
-    selected=$(echo "$upgradable" | fzf --multi \
-        --header="Select packages to update (TAB to multi-select, ENTER to confirm)" \
+    local count=$(echo "$all_updates" | wc -l)
+    echo "$all_updates" | fzf \
+        --header="$count update(s) pending. ENTER to upgrade everything, ESC to cancel" \
         --preview "$preview_cmd" \
-        --preview-window=right:60%:wrap)
-
-    if [[ -z "$selected" ]]; then
-        echo "No packages selected."
+        --preview-window=right:60%:wrap >/dev/null || {
+        echo "Cancelled."
         return 0
+    }
+
+    if [[ -n "$_AUR_HELPER" ]]; then
+        $_AUR_HELPER -Syu
+    else
+        sudo pacman -Syu
     fi
-
-    local -a pkgs
-    pkgs=("${(f)selected}")
-
-    echo "Updating: ${pkgs[*]}"
-    _pkg_install "${pkgs[@]}"
 }
 
 # Fzfkill: interactively search and kill processes with fzf

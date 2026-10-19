@@ -1,137 +1,237 @@
-format = """
-[](#1e1e1e)\
-$python\
-$username\
-$shell\
-[](bg:#2d2d2d fg:#1e1e1e)\
-$directory\
-[](fg:#2d2d2d bg:#3c3c3c)\
-$git_branch\
-$git_status\
-[](fg:#3c3c3c bg:#4a4a4a)\
-$c\
-$elixir\
-$elm\
-$golang\
-$haskell\
-$java\
-$julia\
-$nodejs\
-$nim\
-$rust\
-[](fg:#4a4a4a bg:#5a5a5a)\
-$docker_context\
-[](fg:#5a5a5a bg:#6a6a6a)\
-$time\
-[ ](fg:#6a6a6a)\
-"""
-command_timeout = 1000
-# Disable the blank line at the start of the prompt
-# add_newline = false
+# Plain prompt on the left, extra context on the right.
+#
+#   owen@cachyos:~/.dotfiles  main !2 ?1 ❯      ✗ 127 took 4s ✦1  v22.1 14:32
+#
+# Left:  user@host (󰣀 over SSH), [container] path, git, sudo, prompt char
+# Right: exit status, duration, jobs, language/tool versions, contexts, time
 
-# You can also replace your username with a neat symbol like  to save some space
+"$schema" = "https://starship.rs/config-schema.json"
+
+add_newline = false
+command_timeout = 1000
+palette = "dark"
+
+format = """
+$username\
+$hostname\
+$container\
+$shlvl\
+$directory\
+$git_branch\
+$git_commit\
+$git_state\
+$git_status\
+$git_metrics\
+$python\
+$sudo\
+$character"""
+
+right_format = """
+$status\
+$cmd_duration\
+$jobs\
+$c\
+$golang\
+$java\
+$nodejs\
+$bun\
+$rust\
+$lua\
+$docker_context\
+$kubernetes\
+$memory_usage\
+$battery\
+$time"""
+
+[palettes.dark]
+# Mid-brightness, distinct hues so each part of the prompt is easy to pick out
+fg = "#bfc3c9"
+red = "#c76b6b"
+orange = "#c88a5a"
+yellow = "#c9a85c"
+green = "#7fa86a"
+cyan = "#5fa3a8"
+blue = "#6b8fc4"
+purple = "#a07bb0"
+
+# -------------------------
+# Left side
+# -------------------------
+
 [username]
 show_always = true
-style_user = "bg:#1e1e1e"
-style_root = "bg:#1e1e1e"
-format = '[$user ]($style)'
+style_user = "bold green"
+style_root = "bold red"
+format = "[$user]($style)"
 
-[shell]
-disabled = true
-style = "bg:#1e1e1e"
-format = '[ $indicator ]($style)'
-bash_indicator = ""
-powershell_indicator = ""
+[hostname]
+ssh_only = false
+ssh_symbol = " 󰣀"     # shown after the hostname when connected over SSH
+style = "green"
+format = "[@$hostname$ssh_symbol]($style)[: ](fg)"
+
+[container]
+style = "purple"
+format = "[⬢ $name]($style) "
+
+[shlvl]
+disabled = false
+threshold = 3         # nested shell (2 is normal inside tmux)
+symbol = "↕"
+style = "yellow"
+format = "[$symbol$shlvl]($style) "
 
 [directory]
-style = "bg:#2d2d2d"
-format = "[ $path ]($style)"
-truncation_length = 3
+style = "blue"
+repo_root_style = "bold blue"
+before_repo_root_style = "blue"
+truncation_length = 4
+truncate_to_repo = false
 truncation_symbol = "…/"
+read_only = " 󰌾"
+read_only_style = "red"
+format = "[$path]($style)[$read_only]($read_only_style) "
+repo_root_format = "[$before_root_path]($before_repo_root_style)[$repo_root]($repo_root_style)[$path]($style)[$read_only]($read_only_style) "
 
-# Here is how you can shorten some long paths by text replacement
-# similar to mapped_locations in Oh My Posh:
-[directory.substitutions]
-"Documents" = "󰈙 "
-"Downloads" = " "
-"Music" = " "
-"Pictures" = " "
-# Keep in mind that the order matters. For example:
-# "Important Documents" = "  "
-# will not be replaced, because "Documents" was already substituted before.
-# So either put "Important Documents" before "Documents" or use the substituted version:
-# "Important  " = "  "
+[git_branch]
+symbol = " "
+style = "purple"
+format = "[$symbol$branch(:$remote_branch)]($style) "
+
+[git_commit]
+tag_disabled = false
+tag_symbol = " "
+style = "purple"
+format = "[\\($hash$tag\\)]($style) "
+
+[git_state]
+style = "bold orange"
+format = "[$state( $progress_current/$progress_total)]($style) "
+
+[git_status]
+style = "yellow"
+format = "([$all_status$ahead_behind]($style) )"
+conflicted = "="
+ahead = "⇡${count}"
+behind = "⇣${count}"
+diverged = "⇕⇡${ahead_count}⇣${behind_count}"
+untracked = "?${count}"
+stashed = "≡${count}"
+modified = "!${count}"
+staged = "+${count}"
+renamed = "»${count}"
+deleted = "✘${count}"
+
+[git_metrics]
+disabled = false
+added_style = "green"
+deleted_style = "red"
+format = "([+$added]($added_style) )([-$deleted]($deleted_style) )"
+
+[python]
+# Only the venv name on the left; it changes what `python` means, so keep it visible
+style = "yellow"
+format = "([\\($virtualenv\\)]($style) )"
+detect_extensions = []
+detect_files = []
+
+[sudo]
+disabled = false
+symbol = "󰌋 "
+style = "orange"
+format = "[$symbol]($style)"
+
+[character]
+success_symbol = "[❯](green)"
+error_symbol = "[❯](red)"
+vimcmd_symbol = "[❮](green)"
+
+# -------------------------
+# Right side
+# -------------------------
+
+[status]
+disabled = false
+symbol = "✗ "
+not_executable_symbol = "🚫 "
+not_found_symbol = "? "
+sigint_symbol = "^C "
+signal_symbol = "⚡ "
+map_symbol = true
+style = "red"
+format = "[$symbol$status]($style) "
+
+[cmd_duration]
+min_time = 2000
+style = "yellow"
+format = "[took $duration]($style) "
+
+[jobs]
+symbol = "✦"
+style = "orange"
+number_threshold = 1
+format = "[$symbol$number]($style) "
 
 [c]
 symbol = " "
-style = "bg:#4a4a4a"
-format = '[ $symbol ($version) ]($style)'
-
-[docker_context]
-symbol = " "
-style = "bg:#5a5a5a"
-format = '[ $symbol $context ]($style)$path'
-
-[elixir]
-symbol = " "
-style = "bg:#4a4a4a"
-format = '[ $symbol ($version) ]($style)'
-
-[elm]
-symbol = " "
-style = "bg:#4a4a4a"
-format = '[ $symbol ($version) ]($style)'
-
-[git_branch]
-symbol = ""
-style = "bg:#3c3c3c"
-format = '[ $symbol $branch ]($style)'
-
-[git_status]
-style = "bg:#3c3c3c"
-format = '[$all_status$ahead_behind ]($style)'
+style = "cyan"
+format = "[$symbol($version)]($style) "
 
 [golang]
 symbol = " "
-style = "bg:#4a4a4a"
-format = '[ $symbol ($version) ]($style)'
-
-[haskell]
-symbol = " "
-style = "bg:#4a4a4a"
-format = '[ $symbol ($version) ]($style)'
+style = "cyan"
+format = "[$symbol($version)]($style) "
 
 [java]
 symbol = " "
-style = "bg:#4a4a4a"
-format = '[ $symbol ($version) ]($style)'
-
-[julia]
-symbol = " "
-style = "bg:#4a4a4a"
-format = '[ $symbol ($version) ]($style)'
+style = "cyan"
+format = "[$symbol($version)]($style) "
 
 [nodejs]
-symbol = ""
-style = "bg:#4a4a4a"
-format = '[ $symbol ($version) ]($style)'
+symbol = " "
+style = "cyan"
+format = "[$symbol($version)]($style) "
 
-[nim]
-symbol = " "
-style = "bg:#4a4a4a"
-format = '[ $symbol ($version) ]($style)'
-
-[python]
-style = "bg:#1e1e1e"
-format = '[(\($virtualenv\) )]($style)'
+[bun]
+symbol = "bun "
+style = "cyan"
+format = "[$symbol($version)]($style) "
 
 [rust]
-symbol = ""
-style = "bg:#4a4a4a"
-format = '[ $symbol ($version) ]($style)'
+symbol = " "
+style = "cyan"
+format = "[$symbol($version)]($style) "
+
+[lua]
+symbol = " "
+style = "cyan"
+format = "[$symbol($version)]($style) "
+
+[docker_context]
+symbol = " "
+style = "blue"
+only_with_files = true
+format = "[$symbol$context]($style) "
+
+[kubernetes]
+disabled = false
+symbol = "☸ "
+style = "blue"
+format = "[$symbol$context( \\($namespace\\))]($style) "
+
+[memory_usage]
+disabled = false
+threshold = 85        # only when RAM is nearly full
+symbol = "󰍛 "
+style = "red"
+format = "[$symbol$ram_pct]($style) "
+
+[[battery.display]]
+threshold = 20
+style = "bold red"
 
 [time]
 disabled = false
-time_format = "%R" # Hour:Minute Format
-style = "bg:#6a6a6a"
-format = '[ $time ]($style)'
+time_format = "%H:%M"
+style = "purple"
+format = "[$time]($style)"

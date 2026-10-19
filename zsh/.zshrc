@@ -973,11 +973,11 @@ keybinds() {
     echo -e "${_CYAN}\u2502${_RC}${_YELLOW}  Custom Keybindings                                 ${_RC}${_CYAN}\u2502${_RC}"
     echo -e "${_CYAN}\u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524${_RC}"
     echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Ctrl+f     Zoxide interactive (ji)                 ${_RC}${_CYAN}\u2502${_RC}"
-    echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Ctrl+y     Install package (installpkg)            ${_RC}${_CYAN}\u2502${_RC}"
+    echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Alt+i      Install package (installpkg)            ${_RC}${_CYAN}\u2502${_RC}"
     echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Ctrl+r     Atuin history search                    ${_RC}${_CYAN}\u2502${_RC}"
     echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Ctrl+t     Fuzzy file search                       ${_RC}${_CYAN}\u2502${_RC}"
     echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Ctrl+g     Fuzzy directory search                  ${_RC}${_CYAN}\u2502${_RC}"
-    echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Ctrl+x     Fuzzy delete (fzfdel)                   ${_RC}${_CYAN}\u2502${_RC}"
+    echo -e "${_CYAN}\u2502${_RC}${_GREEN}  Alt+x      Fuzzy delete (fzfdel)                   ${_RC}${_CYAN}\u2502${_RC}"
     echo -e "${_CYAN}\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518${_RC}"
     echo ""
 }
@@ -1034,29 +1034,28 @@ if [[ -o interactive ]]; then
     bindkey '^[[3;5~' delete-word           # Ctrl+Delete
     bindkey '^H'      backward-delete-word  # Ctrl+Backspace
 
-    # Ctrl+f: zoxide interactive
-    __zsh_ji_widget() {
-        BUFFER="ji"
+    # Widgets that run a command. push-line stashes whatever was typed and
+    # restores it at the next prompt, so the half-typed command isn't lost.
+    _zsh_run_widget() {
+        zle push-line
+        BUFFER="$1"
         zle accept-line
     }
+
+    # Ctrl+f: zoxide interactive
+    __zsh_ji_widget() { _zsh_run_widget ji }
     zle -N __zsh_ji_widget
     bindkey '^f' __zsh_ji_widget
 
-    # Ctrl+y: installpkg
-    __zsh_installpkg_widget() {
-        BUFFER="installpkg"
-        zle accept-line
-    }
+    # Alt+i: installpkg (not Ctrl+y, which is zsh's paste-from-kill-ring)
+    __zsh_installpkg_widget() { _zsh_run_widget installpkg }
     zle -N __zsh_installpkg_widget
-    bindkey '^y' __zsh_installpkg_widget
+    bindkey '^[i' __zsh_installpkg_widget
 
-    # Ctrl+x: fzfdel
-    __zsh_fzfdel_widget() {
-        BUFFER="fzfdel"
-        zle accept-line
-    }
+    # Alt+x: fzfdel (not Ctrl+x, the prefix for zsh's Ctrl+x <key> bindings)
+    __zsh_fzfdel_widget() { _zsh_run_widget fzfdel }
     zle -N __zsh_fzfdel_widget
-    bindkey '^x' __zsh_fzfdel_widget
+    bindkey '^[x' __zsh_fzfdel_widget
 
     # Ctrl+g: fuzzy directory search (insert selected dir at cursor)
     # Note: FZF's built-in Alt+C changes directory; this inserts path at cursor instead

@@ -76,11 +76,11 @@ Also: `cp -i` / `mv -i` (confirm overwrite), `mkdir -p`, `reload` (`exec zsh`), 
 
 | Function                     | Description                                                                          |
 | ---------------------------- | ------------------------------------------------------------------------------------ |
-| `installpkg`                 | `fzf` picker over repos + AUR, installs the selection (**Ctrl+y**)                   |
+| `installpkg`                 | `fzf` picker over repos + AUR, installs the selection (**Alt+i**)                    |
 | `removepkg`                  | `fzf` picker over installed packages; preview shows reverse deps                     |
 | `updatepkg`                  | Browse pending repo + AUR updates in `fzf`, then run a full `yay -Syu`               |
 | `fzfkill`                    | `fzf` process picker sorted by CPU, with signal choice                               |
-| `fzfdel`                     | `fzf` file picker, moves selection to trash (**Ctrl+x**)                             |
+| `fzfdel`                     | `fzf` file picker, moves selection to trash (**Alt+x**)                              |
 | `sysinfo`                    | System health dashboard: CPU, memory, disk, network, units, updates                  |
 | `extract <file>`             | Universal archive extractor (tar, zip, rar, 7z, gz, bz2, zst, ...)                   |
 | `topdf`                      | Convert `.docx` / `.pptx` in the current directory to PDF, then delete the originals |
@@ -103,11 +103,11 @@ Also: `cp -i` / `mv -i` (confirm overwrite), `mkdir -p`, `reload` (`exec zsh`), 
 | Key        | Action                                          |
 | ---------- | ----------------------------------------------- |
 | **Ctrl+f** | Zoxide interactive: fuzzy directory jump        |
-| **Ctrl+y** | `installpkg`: fuzzy package installer           |
+| **Alt+i**  | `installpkg`: fuzzy package installer           |
 | **Ctrl+r** | Atuin history search                            |
 | **Ctrl+t** | Fuzzy file search (inserts path at cursor)      |
 | **Ctrl+g** | Fuzzy directory search (inserts path at cursor) |
-| **Ctrl+x** | `fzfdel`: fuzzy file deletion                   |
+| **Alt+x**  | `fzfdel`: fuzzy file deletion                   |
 
 ---
 

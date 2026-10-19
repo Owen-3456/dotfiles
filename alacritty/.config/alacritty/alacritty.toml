@@ -35,3 +35,28 @@ args = []
 
 [scrolling]
 history = 10000
+
+# Same palette as the Starship prompt: mid-brightness, distinct hues
+[colors.primary]
+background = "#1a1a1a"
+foreground = "#bfc3c9"
+
+[colors.normal]
+black = "#2a2a2a"
+red = "#c76b6b"
+green = "#7fa86a"
+yellow = "#c9a85c"
+blue = "#6b8fc4"
+magenta = "#a07bb0"
+cyan = "#5fa3a8"
+white = "#bfc3c9"
+
+[colors.bright]
+black = "#5c6370"
+red = "#d78787"
+green = "#95bb80"
+yellow = "#d8bb76"
+blue = "#85a5d4"
+magenta = "#b593c4"
+cyan = "#78b8bd"
+white = "#e0e3e7"

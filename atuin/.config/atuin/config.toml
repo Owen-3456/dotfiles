@@ -1,1 +1,12 @@
 sync_address = "http://edoras:8899"
+
+# Enter runs the selected command straight away; Tab puts it on the line to edit
+enter_accept = true
+
+# Smaller search UI that doesn't take over the whole terminal
+style = "compact"
+inline_height = 20
+
+# Up arrow only cycles through commands run in the current directory
+# (Ctrl+r still searches everything)
+filter_mode_shell_up_key_binding = "directory"

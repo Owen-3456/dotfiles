@@ -113,7 +113,7 @@ Also: `cp -i` / `mv -i` (confirm overwrite), `mkdir -p`, `reload` (`exec zsh`), 
 
 ## Other configs
 
-- **Atuin** (`atuin/.config/atuin/config.toml`): only sets `sync_address` to a self-hosted sync server (`http://edoras:8899`); everything else is Atuin's defaults.
+- **Atuin** (`atuin/.config/atuin/config.toml`): syncs to a self-hosted server (`http://edoras:8899`), compact inline search UI, Enter runs the selected command (Tab to edit it first), and the up arrow only cycles through commands run in the current directory.
 - **Starship** (`starship/.config/starship.toml`): plain single-line prompt in mid-brightness contrasting colours, with extra context pushed to the right edge. Left: `user@host:` (󰣀 over SSH, red user as root), path with the repo root in bold, git branch / state / status / `+-` line counts, Python venv, a sudo-cached icon and a `❯` that turns red on failure. Right: exit code, duration of commands over 2s, background jobs, language versions (inside projects only), Docker/Kubernetes context, RAM and battery warnings, and the time.
 - **Alacritty** (`alacritty/.config/alacritty/alacritty.toml`): JetBrainsMono Nerd Font 12, opacity 0.9, non-blinking beam cursor, starts maximized, 10,000-line scrollback, runs zsh.
 - **Tmux** (`tmux/.tmux.conf`): dark minimal theme with a centred window list. Mouse support, windows and panes numbered from 1, 50,000-line scrollback, `prefix + r` reloads. Plugins via [TPM](https://github.com/tmux-plugins/tpm): `tmux-sensible`, `tmux-resurrect` + `tmux-continuum` (sessions saved and auto-restored) and `tmux-yank`.

@@ -796,8 +796,8 @@ topdf() {
         echo "=== $(date '+%H:%M:%S') :: ${f:t} ===" >> "$log_file"
         if libreoffice --headless --convert-to pdf "$f" --outdir "$dirname" >> "$log_file" 2>&1; then
             _stop_spinner
-            if command rm "$f" 2>/dev/null; then
-                _ui_ok "Converted and removed original"
+            if { (( $+commands[trash] )) && command trash "$f" 2>/dev/null; } || command rm "$f" 2>/dev/null; then
+                _ui_ok "Converted and moved original to trash"
                 ((converted++))
             else
                 _ui_warn "Converted but failed to remove original"

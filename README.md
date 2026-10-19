@@ -83,7 +83,7 @@ Also: `cp -i` / `mv -i` (confirm overwrite), `mkdir -p`, `reload` (`exec zsh`), 
 | `fzfdel`                     | `fzf` file picker, moves selection to trash (**Alt+x**)                              |
 | `sysinfo`                    | System health dashboard: CPU, memory, disk, network, units, updates                  |
 | `extract <file>`             | Universal archive extractor (tar, zip, rar, 7z, gz, bz2, zst, ...)                   |
-| `topdf`                      | Convert `.docx` / `.pptx` in the current directory to PDF, then delete the originals |
+| `topdf`                      | Convert `.docx` / `.pptx` in the current directory to PDF, then trash the originals  |
 | `serve [port]`               | HTTP server in the current directory (python3, python, or php)                       |
 | `ytdl [url] [quality] [dir]` | Download a video with `yt-dlp` (default 1080p into `~/Videos`)                       |
 | `whatsmyip`                  | Show internal and external IP addresses                                              |

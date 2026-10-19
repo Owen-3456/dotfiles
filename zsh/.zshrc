@@ -77,9 +77,11 @@ zstyle ':completion:*:descriptions' format '%B%d%b'
 zstyle ':completion:*' menu select
 
 # Zinit plugins
+# Order matters: fzf-tab must load after compinit but before plugins that wrap
+# widgets (autosuggestions, autopair, syntax highlighting).
 zinit light zsh-users/zsh-completions               # extra completion definitions
-zinit light zsh-users/zsh-autosuggestions            # fish-like autosuggestions
 zinit light Aloxaf/fzf-tab                           # fzf-based tab completion
+zinit light zsh-users/zsh-autosuggestions            # fish-like autosuggestions
 zinit light hlissner/zsh-autopair                    # auto-close brackets, quotes, parens
 zinit light MichaelAquilina/zsh-you-should-use       # reminds you of existing aliases
 zinit light MichaelAquilina/zsh-auto-notify          # desktop notifications for long commands
@@ -87,6 +89,7 @@ zinit light zdharma-continuum/fast-syntax-highlighting   # fast command syntax h
 # Note: history-search-multi-word was removed — Atuin's own search (Ctrl+R) replaces it
 
 # zsh-autosuggestions configuration
+# (`atuin init zsh` below prepends its own "atuin" strategy to this list)
 export ZSH_AUTOSUGGEST_STRATEGY=(history completion)
 export ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
 

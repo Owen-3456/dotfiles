@@ -4,10 +4,6 @@
 # Core: environment & shell
 # =========================
 
-# Source global definitions
-[[ -f /etc/zshrc ]] && . /etc/zshrc
-[[ -f /etc/zsh/zshrc ]] && . /etc/zsh/zshrc
-
 # History configuration
 # Atuin is the single source of truth for shell history (recording, search,
 # cross-machine sync). Keep only a small in-memory buffer for things that
@@ -206,12 +202,10 @@ alias myip="whatsmyip"
 # Package helpers
 # =========================
 
-# AUR helper: prefer yay, fall back to paru.
+# AUR helper: yay if installed, otherwise plain pacman.
 # Resolved once at startup so it can also be interpolated into fzf preview strings.
 if (( $+commands[yay] )); then
     _AUR_HELPER=yay
-elif (( $+commands[paru] )); then
-    _AUR_HELPER=paru
 else
     _AUR_HELPER=""
 fi

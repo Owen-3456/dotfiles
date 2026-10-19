@@ -531,7 +531,7 @@ removepkg() {
     pkgs=("${(f)selected}")
 
     echo "Removing: ${pkgs[*]}"
-    sudo pacman -R --noconfirm "${pkgs[@]}"
+    sudo pacman -Rns --noconfirm "${pkgs[@]}"
 }
 
 # Updatepkg: browse pending updates with fzf, then run a full system upgrade.

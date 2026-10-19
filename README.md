@@ -77,7 +77,7 @@ Also: `cp -i` / `mv -i` (confirm overwrite), `mkdir -p`, `reload` (`exec zsh`), 
 | Function                     | Description                                                                          |
 | ---------------------------- | ------------------------------------------------------------------------------------ |
 | `installpkg`                 | `fzf` picker over repos + AUR, installs the selection (**Alt+i**)                    |
-| `removepkg`                  | `fzf` picker over installed packages; preview shows reverse deps                     |
+| `removepkg`                  | `fzf` picker over installed packages, removed with unneeded deps; preview shows reverse deps |
 | `updatepkg`                  | Browse pending repo + AUR updates in `fzf`, then run a full `yay -Syu`               |
 | `fzfkill`                    | `fzf` process picker sorted by CPU, with signal choice                               |
 | `fzfdel`                     | `fzf` file picker, moves selection to trash (**Alt+x**)                              |
